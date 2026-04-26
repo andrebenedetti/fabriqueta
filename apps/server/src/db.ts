@@ -52,7 +52,9 @@ export type SprintTaskRow = TaskRow & {
   epicTitle: string;
 };
 
-const projectsDirectory = resolve(import.meta.dir, "../../../data/projects");
+const projectsDirectory = Bun.env.FABRIQUETA_PROJECTS_DIR
+  ? resolve(Bun.env.FABRIQUETA_PROJECTS_DIR)
+  : resolve(import.meta.dir, "../../../data/projects");
 
 mkdirSync(projectsDirectory, { recursive: true });
 

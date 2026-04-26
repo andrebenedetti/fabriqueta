@@ -8,10 +8,13 @@
   "scripts": {
     "dev:server": "bun run --cwd apps/server dev",
     "dev:web": "bun run --cwd apps/web dev",
-    "typecheck": "bun run --cwd apps/server typecheck && bun run --cwd apps/web typecheck",
+    "dev:mcp": "bun run --cwd apps/mcp-server dev",
+    "test": "bun test",
+    "typecheck": "bun run --cwd apps/server typecheck && bun run --cwd apps/web typecheck && bun run --cwd apps/mcp-server typecheck",
     "build": "bun run --cwd apps/web build"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.1",
     "bun-types": "^1.3.5",
     "typescript": "^5.9.3"
   }
