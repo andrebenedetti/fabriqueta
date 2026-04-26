@@ -1,4 +1,6 @@
 import {
+  addTaskToActiveSprint,
+  completeActiveSprint,
   createEpic,
   createProject,
   createTask,
@@ -6,6 +8,8 @@ import {
   listProjects,
   moveEpic,
   moveTask,
+  removeTaskFromSprint,
+  startSprint,
   type TaskStatus,
   updateEpic,
   updateTask,
@@ -98,13 +102,36 @@ export async function handleRequest(request: Request) {
       return json(getProjectBoard(parts[2]));
     }
 
-    if (
-      request.method === "POST" &&
-      parts[0] === "api" &&
-      parts[1] === "projects" &&
-      parts[3] === "epics" &&
-      parts.length === 4
-    ) {
+      if (
+        request.method === "POST" &&
+        parts[0] === "api" &&
+        parts[1] === "projects" &&
+        parts[3] === "sprints" &&
+        parts.length === 4
+      ) {
+        const body = await parseBody<{ name?: unknown }>(request);
+        return json({ sprint: startSprint(parts[2], { name: String(body.name ?? "") }) }, 201);
+      }
+
+      if (
+        request.method === "POST" &&
+        parts[0] === "api" &&
+        parts[1] === "projects" &&
+        parts[3] === "sprints" &&
+        parts[4] === "complete" &&
+        parts.length === 5
+      ) {
+        completeActiveSprint(parts[2]);
+        return json({ ok: true });
+      }
+
+      if (
+        request.method === "POST" &&
+        parts[0] === "api" &&
+        parts[1] === "projects" &&
+        parts[3] === "epics" &&
+        parts.length === 4
+      ) {
       const body = await parseBody<{ title?: unknown; description?: unknown }>(request);
       return json(
         {
@@ -145,13 +172,33 @@ export async function handleRequest(request: Request) {
       return json({ epic: moveEpic(parts[2], parts[4], getDirection(body.direction)) });
     }
 
-    if (
-      request.method === "POST" &&
-      parts[0] === "api" &&
-      parts[1] === "projects" &&
-      parts[3] === "epics" &&
-      parts[5] === "tasks" &&
-      parts.length === 6
+      if (
+        request.method === "POST" &&
+        parts[0] === "api" &&
+        parts[1] === "projects" &&
+        parts[3] === "tasks" &&
+        parts[5] === "sprint" &&
+        parts.length === 6
+      ) {
+        const body = await parseBody<{ action?: unknown }>(request);
+        if (body.action === "add") {
+          return json({ task: addTaskToActiveSprint(parts[2], parts[4]) });
+        }
+
+        if (body.action === "remove") {
+          return json({ task: removeTaskFromSprint(parts[2], parts[4]) });
+        }
+
+        throw new Error("Sprint action must be 'add' or 'remove'");
+      }
+
+      if (
+        request.method === "POST" &&
+        parts[0] === "api" &&
+        parts[1] === "projects" &&
+        parts[3] === "epics" &&
+        parts[5] === "tasks" &&
+        parts.length === 6
     ) {
       const body = await parseBody<{ title?: unknown; description?: unknown }>(request);
       return json(

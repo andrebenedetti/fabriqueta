@@ -12,6 +12,15 @@ export type ProjectDetails = {
   createdAt: string;
 };
 
+export type Sprint = {
+  id: string;
+  name: string;
+  status: "active" | "completed";
+  createdAt: string;
+  startedAt: string;
+  completedAt: string | null;
+};
+
 export type TaskStatus = "todo" | "in_progress" | "done";
 
 export type Task = {
@@ -21,7 +30,12 @@ export type Task = {
   description: string;
   position: number;
   status: TaskStatus;
+  sprintId: string | null;
   createdAt: string;
+};
+
+export type SprintTask = Task & {
+  epicTitle: string;
 };
 
 export type Epic = {
@@ -35,5 +49,7 @@ export type Epic = {
 
 export type Board = {
   project: ProjectDetails;
+  activeSprint: Sprint | null;
+  sprintTasks: SprintTask[];
   epics: Epic[];
 };

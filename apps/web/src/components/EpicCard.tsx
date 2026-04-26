@@ -2,19 +2,25 @@ import { FormEvent, useState } from "react";
 import type { Epic } from "../types";
 
 type EpicCardProps = {
+  activeSprintId: string | null;
   epic: Epic;
   isMutating: boolean;
+  onAddTaskToSprint: (taskId: string) => Promise<void>;
   onCreateTask: (epicId: string, title: string) => Promise<void>;
   onMoveEpic: (epicId: string, direction: "up" | "down") => Promise<void>;
   onMoveTask: (taskId: string, direction: "up" | "down") => Promise<void>;
+  onRemoveTaskFromSprint: (taskId: string) => Promise<void>;
 };
 
 export function EpicCard({
+  activeSprintId,
   epic,
   isMutating,
+  onAddTaskToSprint,
   onCreateTask,
   onMoveEpic,
   onMoveTask,
+  onRemoveTaskFromSprint,
 }: EpicCardProps) {
   const [taskTitle, setTaskTitle] = useState("");
 
@@ -68,12 +74,36 @@ export function EpicCard({
         ) : (
           epic.tasks.map((task) => (
             <li className="task-row" key={task.id}>
-              <div>
+              <div className="task-copy">
                 <p>{task.title}</p>
-                <small className="muted">Task {task.position + 1}</small>
+                <div className="task-meta">
+                  <small className="muted">Task {task.position + 1}</small>
+                  {activeSprintId && task.sprintId === activeSprintId ? (
+                    <span className="sprint-badge">In sprint</span>
+                  ) : null}
+                </div>
               </div>
 
               <div className="inline-actions">
+                {activeSprintId ? (
+                  task.sprintId === activeSprintId ? (
+                    <button
+                      disabled={isMutating}
+                      onClick={() => onRemoveTaskFromSprint(task.id)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <button
+                      disabled={isMutating}
+                      onClick={() => onAddTaskToSprint(task.id)}
+                      type="button"
+                    >
+                      Add to sprint
+                    </button>
+                  )
+                ) : null}
                 <button
                   disabled={isMutating}
                   onClick={() => onMoveTask(task.id, "up")}

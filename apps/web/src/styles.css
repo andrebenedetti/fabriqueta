@@ -66,7 +66,9 @@ main {
 .masthead,
 .create-panel,
 .list-panel,
-.epic-card {
+.epic-card,
+.sprint-panel,
+.view-switcher {
   padding: 1.35rem;
 }
 
@@ -171,6 +173,46 @@ main {
   gap: 1rem;
 }
 
+.view-switcher {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.tab-row {
+  display: inline-flex;
+  gap: 0.5rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+  background: rgba(36, 24, 13, 0.06);
+}
+
+.tab-button {
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tab-button.active {
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text);
+  box-shadow: 0 8px 24px rgba(76, 47, 16, 0.08);
+}
+
+.sprint-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sprint-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
 .project-card {
   display: flex;
   justify-content: space-between;
@@ -213,6 +255,66 @@ main {
 
 .hero-stats span {
   color: var(--muted);
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.board-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem;
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(73, 52, 25, 0.08);
+  min-height: 320px;
+}
+
+.board-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.board-column-header h3 {
+  margin: 0;
+}
+
+.board-column-header span {
+  color: var(--muted);
+}
+
+.board-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.board-card {
+  padding: 1rem;
+  border-radius: 1.1rem;
+  background: rgba(255, 251, 245, 0.9);
+  border: 1px solid rgba(73, 52, 25, 0.08);
+}
+
+.board-card-title {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+
+.status-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.board-empty {
+  margin-top: auto;
 }
 
 .epic-card {
@@ -259,6 +361,7 @@ main {
 .task-row {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 0.75rem;
   padding: 0.9rem 1rem;
   background: rgba(255, 255, 255, 0.72);
@@ -267,6 +370,67 @@ main {
 
 .task-row p {
   margin: 0;
+}
+
+.task-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.task-meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sprint-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(158, 79, 32, 0.12);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.sprint-task-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sprint-task-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(73, 52, 25, 0.08);
+}
+
+.sprint-task-row p {
+  margin: 0;
+}
+
+.ghost-button {
+  padding: 0.6rem 0.85rem;
+  border: 1px solid rgba(73, 52, 25, 0.14);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+}
+
+.ghost-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .task-empty,
@@ -300,8 +464,14 @@ main {
 @media (max-width: 900px) {
   .masthead,
   .create-form,
-  .project-card {
+  .project-card,
+  .sprint-header,
+  .sprint-task-row {
     flex-direction: column;
+  }
+
+  .board-grid {
+    grid-template-columns: 1fr;
   }
 
   .project-metrics {

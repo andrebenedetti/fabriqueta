@@ -64,3 +64,42 @@ export async function moveTask(projectSlug: string, taskId: string, direction: "
     body: JSON.stringify({ direction }),
   });
 }
+
+export async function updateTaskStatus(
+  projectSlug: string,
+  taskId: string,
+  input: { title: string; description?: string; status: "todo" | "in_progress" | "done" },
+) {
+  return request(`/api/projects/${projectSlug}/tasks/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function startSprint(projectSlug: string, name: string) {
+  return request(`/api/projects/${projectSlug}/sprints`, {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function completeActiveSprint(projectSlug: string) {
+  return request(`/api/projects/${projectSlug}/sprints/complete`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function addTaskToSprint(projectSlug: string, taskId: string) {
+  return request(`/api/projects/${projectSlug}/tasks/${taskId}/sprint`, {
+    method: "POST",
+    body: JSON.stringify({ action: "add" }),
+  });
+}
+
+export async function removeTaskFromSprint(projectSlug: string, taskId: string) {
+  return request(`/api/projects/${projectSlug}/tasks/${taskId}/sprint`, {
+    method: "POST",
+    body: JSON.stringify({ action: "remove" }),
+  });
+}

@@ -16,6 +16,17 @@ export type ProjectDetails = {
   createdAt: string;
 };
 
+export type SprintStatus = "active" | "completed";
+
+export type SprintRow = {
+  id: string;
+  name: string;
+  status: SprintStatus;
+  createdAt: string;
+  startedAt: string;
+  completedAt: string | null;
+};
+
 export type EpicRow = {
   id: string;
   title: string;
@@ -33,7 +44,12 @@ export type TaskRow = {
   description: string;
   position: number;
   status: TaskStatus;
+  sprintId: string | null;
   createdAt: string;
+};
+
+export type SprintTaskRow = TaskRow & {
+  epicTitle: string;
 };
 
 const projectsDirectory = resolve(import.meta.dir, "../../../data/projects");
@@ -76,7 +92,29 @@ function initializeProjectSchema(db: Database) {
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_epic_position
     ON tasks(epic_id, position);
+
+    CREATE TABLE IF NOT EXISTS sprints (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      completed_at TEXT,
+      CHECK (status IN ('active', 'completed'))
+    );
   `);
+
+  const sprintIdColumn = db
+    .query<{ name: string }, []>(`
+      SELECT name
+      FROM pragma_table_info('tasks')
+      WHERE name = 'sprint_id'
+    `)
+    .get();
+
+  if (!sprintIdColumn) {
+    db.exec("ALTER TABLE tasks ADD COLUMN sprint_id TEXT;");
+  }
 }
 
 function projectPath(slug: string) {
@@ -226,6 +264,7 @@ function requireTask(db: Database, taskId: string) {
         description,
         position,
         status,
+        sprint_id AS sprintId,
         created_at AS createdAt
       FROM tasks
       WHERE id = ?
@@ -237,6 +276,33 @@ function requireTask(db: Database, taskId: string) {
   }
 
   return task;
+}
+
+function getActiveSprint(db: Database) {
+  return db
+    .query<SprintRow, []>(`
+      SELECT
+        id,
+        name,
+        status,
+        created_at AS createdAt,
+        started_at AS startedAt,
+        completed_at AS completedAt
+      FROM sprints
+      WHERE status = 'active'
+      ORDER BY started_at DESC
+      LIMIT 1
+    `)
+    .get();
+}
+
+function requireActiveSprint(db: Database) {
+  const sprint = getActiveSprint(db);
+  if (!sprint) {
+    throw new Error("No active sprint");
+  }
+
+  return sprint;
 }
 
 export function listProjects() {
@@ -336,8 +402,8 @@ export function createTask(projectSlug: string, epicId: string, input: { title: 
     const taskId = crypto.randomUUID();
 
     db.query(`
-      INSERT INTO tasks (id, epic_id, title, description, position, status)
-      VALUES (?, ?, ?, ?, ?, 'todo')
+      INSERT INTO tasks (id, epic_id, title, description, position, status, sprint_id)
+      VALUES (?, ?, ?, ?, ?, 'todo', NULL)
     `).run(taskId, epicId, title, description, position);
 
     return requireTask(db, taskId);
@@ -366,6 +432,71 @@ export function updateTask(
     `).run(title, description, status, taskId);
 
     return requireTask(db, taskId);
+  });
+}
+
+export function startSprint(projectSlug: string, input: { name: string }) {
+  return withProjectDb(projectSlug, (db) => {
+    const name = input.name.trim();
+    if (!name) {
+      throw new Error("Sprint name is required");
+    }
+
+    if (getActiveSprint(db)) {
+      throw new Error("Complete the active sprint before starting a new one");
+    }
+
+    const sprintId = crypto.randomUUID();
+
+    db.query(`
+      INSERT INTO sprints (id, name, status, created_at, started_at, completed_at)
+      VALUES (?, ?, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)
+    `).run(sprintId, name);
+
+    return requireActiveSprint(db);
+  });
+}
+
+export function completeActiveSprint(projectSlug: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const sprint = requireActiveSprint(db);
+
+    db.query(`
+      UPDATE sprints
+      SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(sprint.id);
+
+    return sprint.id;
+  });
+}
+
+export function addTaskToActiveSprint(projectSlug: string, taskId: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const task = requireTask(db, taskId);
+    const sprint = requireActiveSprint(db);
+
+    db.query(`
+      UPDATE tasks
+      SET sprint_id = ?
+      WHERE id = ?
+    `).run(sprint.id, task.id);
+
+    return requireTask(db, task.id);
+  });
+}
+
+export function removeTaskFromSprint(projectSlug: string, taskId: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const task = requireTask(db, taskId);
+
+    db.query(`
+      UPDATE tasks
+      SET sprint_id = NULL
+      WHERE id = ?
+    `).run(task.id);
+
+    return requireTask(db, task.id);
   });
 }
 
@@ -438,6 +569,7 @@ export function moveTask(projectSlug: string, taskId: string, direction: "up" | 
 export function getProjectBoard(projectSlug: string) {
   return withProjectDb(projectSlug, (db) => {
     const project = readProjectDetails(db);
+    const activeSprint = getActiveSprint(db) ?? null;
     const epics = db
       .query<EpicRow, []>(`
         SELECT
@@ -461,6 +593,7 @@ export function getProjectBoard(projectSlug: string) {
               description,
               position,
               status,
+              sprint_id AS sprintId,
               created_at AS createdAt
             FROM tasks
             WHERE epic_id = ?
@@ -469,7 +602,28 @@ export function getProjectBoard(projectSlug: string) {
           .all(epic.id),
       }));
 
-    return { project, epics };
+    const sprintTasks = activeSprint
+      ? db
+          .query<SprintTaskRow, [string]>(`
+            SELECT
+              tasks.id,
+              tasks.epic_id AS epicId,
+              tasks.title,
+              tasks.description,
+              tasks.position,
+              tasks.status,
+              tasks.sprint_id AS sprintId,
+              tasks.created_at AS createdAt,
+              epics.title AS epicTitle
+            FROM tasks
+            INNER JOIN epics ON epics.id = tasks.epic_id
+            WHERE tasks.sprint_id = ?
+            ORDER BY epics.position ASC, tasks.position ASC, tasks.created_at ASC
+          `)
+          .all(activeSprint.id)
+      : [];
+
+    return { project, activeSprint, sprintTasks, epics };
   });
 }
 
