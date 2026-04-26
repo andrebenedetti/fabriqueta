@@ -3,6 +3,7 @@ import type { Epic, Task } from "../types";
 
 type EpicCardProps = {
   activeSprintId: string | null;
+  emptyMessage?: string;
   epic: Epic;
   isMutating: boolean;
   onAddTaskToSprint: (taskId: string) => Promise<void>;
@@ -37,6 +38,7 @@ function taskLifecycleLabel(task: Task, activeSprintId: string | null) {
 
 export function EpicCard({
   activeSprintId,
+  emptyMessage,
   epic,
   isMutating,
   onAddTaskToSprint,
@@ -182,7 +184,7 @@ export function EpicCard({
 
       <ol className="task-list">
         {epic.tasks.length === 0 ? (
-          <li className="task-empty">No tasks yet for this epic.</li>
+          <li className="task-empty">{emptyMessage ?? "No tasks yet for this epic."}</li>
         ) : (
           epic.tasks.map((task) => (
             <li className="task-row" key={task.id}>

@@ -163,6 +163,17 @@ describe("HTTP API", () => {
       description: "",
       status: "done",
     });
+    const sprint = sprintResult.payload?.sprint as { id: string };
+    const updatedSprintResult = await apiRequest(
+      "PATCH",
+      `/api/projects/${alphaProject.slug}/sprints/${sprint.id}`,
+      {
+        retrospectiveNotes: "Finished the backlog view first and kept the board stable.",
+      },
+    );
+    expect((updatedSprintResult.payload?.sprint as { retrospectiveNotes: string }).retrospectiveNotes).toBe(
+      "Finished the backlog view first and kept the board stable.",
+    );
 
     const docsDirectoryResult = await apiRequest(
       "POST",
@@ -317,11 +328,23 @@ describe("HTTP API", () => {
     );
     const boardAfterCompletion = boardAfterCompletionResult.payload as {
       activeSprint: null;
+      sprintHistory: Array<{
+        name: string;
+        retrospectiveNotes: string;
+        totalTasks: number;
+        completedTasks: number;
+      }>;
       sprintTasks: unknown[];
     };
 
     expect(boardAfterCompletion.activeSprint).toBeNull();
     expect(boardAfterCompletion.sprintTasks).toHaveLength(0);
+    expect(boardAfterCompletion.sprintHistory[0]).toMatchObject({
+      name: "Sprint 1",
+      retrospectiveNotes: "Finished the backlog view first and kept the board stable.",
+      totalTasks: 1,
+      completedTasks: 1,
+    });
   });
 });
 
@@ -356,6 +379,9 @@ describe("MCP server", () => {
       expect(tools.tools.some((tool) => tool.name === "create_documentation_node")).toBe(true);
       expect(tools.tools.some((tool) => tool.name === "delete_epic")).toBe(true);
       expect(tools.tools.some((tool) => tool.name === "delete_task")).toBe(true);
+      expect(tools.tools.some((tool) => tool.name === "update_sprint_retrospective_notes")).toBe(
+        true,
+      );
       expect(resources.resources.some((resource) => resource.uri === "fabriqueta://projects")).toBe(
         true,
       );
@@ -425,10 +451,11 @@ describe("MCP server", () => {
       });
       const throwawayEpic = throwawayEpicResult.structuredContent as { id: string };
 
-      await client.callTool({
+      const startedSprintResult = await client.callTool({
         name: "start_sprint",
         arguments: { projectSlug: createdProject.slug, name: "Ops Sprint" },
       });
+      const startedSprint = startedSprintResult.structuredContent as { id: string; name: string };
       await client.callTool({
         name: "add_task_to_active_sprint",
         arguments: { projectSlug: createdProject.slug, taskId: createdTask.id },
@@ -439,6 +466,14 @@ describe("MCP server", () => {
           projectSlug: createdProject.slug,
           taskId: createdTask.id,
           status: "in_progress",
+        },
+      });
+      await client.callTool({
+        name: "update_sprint_retrospective_notes",
+        arguments: {
+          projectSlug: createdProject.slug,
+          sprintId: startedSprint.id,
+          retrospectiveNotes: "One task was enough to validate the operational loop.",
         },
       });
       await client.callTool({
@@ -499,11 +534,16 @@ describe("MCP server", () => {
         arguments: { projectSlug: createdProject.slug },
       });
       const board = boardResult.structuredContent as {
-        activeSprint: { name: string } | null;
+        activeSprint: { name: string; retrospectiveNotes: string } | null;
+        sprintHistory: Array<{ id: string }>;
         sprintTasks: Array<{ id: string; status: string }>;
       };
 
       expect(board.activeSprint?.name).toBe("Ops Sprint");
+      expect(board.activeSprint?.retrospectiveNotes).toBe(
+        "One task was enough to validate the operational loop.",
+      );
+      expect(board.sprintHistory).toEqual([]);
       expect(board.sprintTasks).toEqual([
         expect.objectContaining({ id: createdTask.id, status: "in_progress" }),
       ]);

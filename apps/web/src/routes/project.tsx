@@ -17,11 +17,20 @@ import {
   startSprint,
   updateEpic,
   updateDocumentationNode,
+  updateSprintRetrospectiveNotes,
   updateTask,
   updateTaskStatus,
 } from "../api";
 import { EpicCard } from "../components/EpicCard";
-import type { Board, Documentation, DocumentationNode, SprintTask, TaskStatus } from "../types";
+import type {
+  Board,
+  Documentation,
+  DocumentationNode,
+  Epic,
+  SprintTask,
+  Task,
+  TaskStatus,
+} from "../types";
 import { Route as RootRoute } from "./__root";
 
 export const Route = createRoute({
@@ -31,6 +40,7 @@ export const Route = createRoute({
 });
 
 type ProjectView = "board" | "backlog" | "documentation";
+type BacklogSort = "backlog" | "title" | "status";
 
 function findDocumentationNode(nodes: DocumentationNode[], nodeId: string | null): DocumentationNode | null {
   if (!nodeId) {
@@ -73,6 +83,37 @@ function countDocumentationNodes(nodes: DocumentationNode[]): number {
   );
 }
 
+function sortBacklogTasks(tasks: Task[], sort: BacklogSort) {
+  const taskStatusOrder: Record<TaskStatus, number> = {
+    todo: 0,
+    in_progress: 1,
+    done: 2,
+  };
+
+  return [...tasks].sort((left, right) => {
+    if (sort === "title") {
+      return left.title.localeCompare(right.title);
+    }
+
+    if (sort === "status") {
+      const statusDifference = taskStatusOrder[left.status] - taskStatusOrder[right.status];
+      if (statusDifference !== 0) {
+        return statusDifference;
+      }
+    }
+
+    return left.position - right.position;
+  });
+}
+
+function formatSprintDate(value: string | null) {
+  if (!value) {
+    return "In progress";
+  }
+
+  return new Date(value.replace(" ", "T")).toLocaleDateString();
+}
+
 function ProjectPage() {
   const { projectSlug } = Route.useParams();
   const [board, setBoard] = useState<Board | null>(null);
@@ -84,6 +125,10 @@ function ProjectPage() {
   const [selectedDocumentationNodeId, setSelectedDocumentationNodeId] = useState<string | null>(null);
   const [selectedDocumentationName, setSelectedDocumentationName] = useState("");
   const [selectedDocumentationContent, setSelectedDocumentationContent] = useState("");
+  const [retrospectiveNotesDraft, setRetrospectiveNotesDraft] = useState("");
+  const [backlogSearch, setBacklogSearch] = useState("");
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
+  const [backlogSort, setBacklogSort] = useState<BacklogSort>("backlog");
   const [view, setView] = useState<ProjectView>("backlog");
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
@@ -170,6 +215,10 @@ function ProjectPage() {
     selectedDocumentationNode?.kind,
   ]);
 
+  useEffect(() => {
+    setRetrospectiveNotesDraft(board?.activeSprint?.retrospectiveNotes ?? "");
+  }, [board?.activeSprint?.id, board?.activeSprint?.retrospectiveNotes]);
+
   async function runMutation(action: () => Promise<void>, fallbackMessage: string) {
     setIsMutating(true);
 
@@ -218,9 +267,33 @@ function ProjectPage() {
 
   async function handleCompleteSprint() {
     await runMutation(async () => {
+      if (board?.activeSprint) {
+        await updateSprintRetrospectiveNotes(
+          projectSlug,
+          board.activeSprint.id,
+          retrospectiveNotesDraft,
+        );
+      }
       await completeActiveSprint(projectSlug);
       await loadBoard();
     }, "Failed to complete sprint");
+  }
+
+  async function handleSaveRetrospectiveNotes() {
+    if (!board?.activeSprint) {
+      return;
+    }
+
+    const sprintId = board.activeSprint.id;
+
+    await runMutation(async () => {
+      await updateSprintRetrospectiveNotes(
+        projectSlug,
+        sprintId,
+        retrospectiveNotesDraft,
+      );
+      await loadBoard();
+    }, "Failed to save retrospective notes");
   }
 
   async function handleAddTaskToSprint(taskId: string) {
@@ -401,6 +474,32 @@ function ProjectPage() {
       tasks: board?.sprintTasks.filter((task) => task.status === "done") ?? [],
     },
   ];
+
+  const backlogSearchQuery = backlogSearch.trim().toLowerCase();
+  const activeSprintId = board?.activeSprint?.id ?? null;
+  const filteredEpics: Epic[] =
+    board?.epics.map((epic) => {
+      const visibleTasks = epic.tasks.filter((task) => {
+        if (!showCompletedTasks && task.status === "done") {
+          return false;
+        }
+
+        if (!backlogSearchQuery) {
+          return true;
+        }
+
+        return `${task.title} ${task.description} ${epic.title}`
+          .toLowerCase()
+          .includes(backlogSearchQuery);
+      });
+
+      return {
+        ...epic,
+        tasks: sortBacklogTasks(visibleTasks, backlogSort),
+      };
+    }) ?? [];
+
+  const visibleBacklogTaskCount = filteredEpics.reduce((count, epic) => count + epic.tasks.length, 0);
 
   return (
     <div className="page-shell">
@@ -587,6 +686,46 @@ function ProjectPage() {
             </form>
           </section>
 
+          <section className="panel backlog-toolbar">
+            <div className="section-heading">
+              <p className="eyebrow">Planner Controls</p>
+              <h2>{visibleBacklogTaskCount} visible backlog tasks</h2>
+            </div>
+
+            <div className="backlog-controls">
+              <label className="field grow">
+                <span>Search tasks</span>
+                <input
+                  onChange={(event) => setBacklogSearch(event.target.value)}
+                  placeholder="Search titles and descriptions"
+                  value={backlogSearch}
+                />
+              </label>
+
+              <label className="field backlog-select-field">
+                <span>Sort tasks</span>
+                <select
+                  className="backlog-select"
+                  onChange={(event) => setBacklogSort(event.target.value as BacklogSort)}
+                  value={backlogSort}
+                >
+                  <option value="backlog">Backlog order</option>
+                  <option value="title">Title</option>
+                  <option value="status">Status</option>
+                </select>
+              </label>
+            </div>
+
+            <label className="checkbox-row">
+              <input
+                checked={showCompletedTasks}
+                onChange={(event) => setShowCompletedTasks(event.target.checked)}
+                type="checkbox"
+              />
+              <span>Show completed tasks in backlog</span>
+            </label>
+          </section>
+
           <section className="panel sprint-panel">
             <div className="sprint-header">
               <div className="section-heading">
@@ -634,6 +773,31 @@ function ProjectPage() {
                 ) : (
                   <p className="muted">This sprint has no tasks yet. Add them from the backlog below.</p>
                 )}
+
+                <div className="retrospective-card">
+                  <label className="field">
+                    <span>Retrospective notes</span>
+                    <textarea
+                      className="inline-textarea"
+                      onChange={(event) => setRetrospectiveNotesDraft(event.target.value)}
+                      placeholder="What worked well, what should change, and what this sprint delivered."
+                      value={retrospectiveNotesDraft}
+                    />
+                  </label>
+                  <div className="inline-actions wrap-actions">
+                    <button
+                      className="secondary-button"
+                      disabled={isBusy}
+                      onClick={handleSaveRetrospectiveNotes}
+                      type="button"
+                    >
+                      Save notes
+                    </button>
+                    <small className="muted">
+                      Notes are preserved in sprint history when the sprint is completed.
+                    </small>
+                  </div>
+                </div>
               </div>
             ) : (
               <form className="create-form" onSubmit={handleStartSprint}>
@@ -653,11 +817,49 @@ function ProjectPage() {
             )}
           </section>
 
+          <section className="panel sprint-history-panel">
+            <div className="section-heading">
+              <p className="eyebrow">Sprint History</p>
+              <h2>{board?.sprintHistory.length ? "Previous sprints" : "No completed sprints yet"}</h2>
+            </div>
+
+            {board?.sprintHistory.length ? (
+              <div className="sprint-history-list">
+                {board.sprintHistory.map((sprint) => (
+                  <article className="sprint-history-card" key={sprint.id}>
+                    <div className="sprint-history-header">
+                      <div>
+                        <h3>{sprint.name}</h3>
+                        <p className="muted">
+                          Completed {formatSprintDate(sprint.completedAt)} · {sprint.completedTasks}/
+                          {sprint.totalTasks} tasks done
+                        </p>
+                      </div>
+                    </div>
+                    <p className="history-notes">
+                      {sprint.retrospectiveNotes || "No retrospective notes were captured for this sprint."}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <h3>No sprint history yet</h3>
+                <p>Complete a sprint to preserve its notes and delivery snapshot here.</p>
+              </div>
+            )}
+          </section>
+
           <section className="epic-grid">
-            {board?.epics.length ? (
-              board.epics.map((epic) => (
+            {filteredEpics.length ? (
+              filteredEpics.map((epic) => (
                 <EpicCard
-                  activeSprintId={board.activeSprint?.id ?? null}
+                  activeSprintId={activeSprintId}
+                  emptyMessage={
+                    board?.epics.find((candidate) => candidate.id === epic.id)?.tasks.length
+                      ? "No tasks match the current backlog filters."
+                      : undefined
+                  }
                   epic={epic}
                   isMutating={isBusy}
                   key={epic.id}

@@ -125,6 +125,17 @@ export async function completeActiveSprint(projectSlug: string) {
   });
 }
 
+export async function updateSprintRetrospectiveNotes(
+  projectSlug: string,
+  sprintId: string,
+  retrospectiveNotes: string,
+) {
+  return request(`/api/projects/${projectSlug}/sprints/${sprintId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ retrospectiveNotes }),
+  });
+}
+
 export async function addTaskToSprint(projectSlug: string, taskId: string) {
   return request(`/api/projects/${projectSlug}/tasks/${taskId}/sprint`, {
     method: "POST",

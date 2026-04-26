@@ -28,7 +28,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -37,7 +38,8 @@ button {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 0.85rem 1rem;
   border-radius: 0.95rem;
@@ -210,6 +212,11 @@ main {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.backlog-toolbar,
+.sprint-history-panel {
+  padding: 1.35rem;
 }
 
 .sprint-header {
@@ -393,6 +400,12 @@ main {
   gap: 0.35rem;
 }
 
+.history-notes {
+  margin: 0;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
 .task-meta {
   display: flex;
   gap: 0.5rem;
@@ -502,6 +515,51 @@ main {
 
 .gap-sm {
   gap: 0.75rem;
+}
+
+.backlog-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 0.85rem;
+  align-items: end;
+}
+
+.backlog-select-field {
+  min-width: 0;
+}
+
+.backlog-select {
+  appearance: none;
+}
+
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--text);
+}
+
+.checkbox-row input {
+  width: auto;
+  margin: 0;
+}
+
+.retrospective-card,
+.sprint-history-card {
+  padding: 1rem;
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(73, 52, 25, 0.08);
+}
+
+.sprint-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.sprint-history-header h3 {
+  margin: 0 0 0.25rem;
 }
 
 .documentation-layout {
@@ -617,6 +675,10 @@ main {
   .doc-inline-form,
   .doc-editor-footer {
     flex-direction: column;
+  }
+
+  .backlog-controls {
+    grid-template-columns: 1fr;
   }
 
   .board-grid {

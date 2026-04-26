@@ -22,9 +22,15 @@ export type SprintRow = {
   id: string;
   name: string;
   status: SprintStatus;
+  retrospectiveNotes: string;
   createdAt: string;
   startedAt: string;
   completedAt: string | null;
+};
+
+export type SprintHistoryRow = SprintRow & {
+  totalTasks: number;
+  completedTasks: number;
 };
 
 export type EpicRow = {
@@ -122,6 +128,7 @@ function initializeProjectSchema(db: Database) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       status TEXT NOT NULL,
+      retrospective_notes TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       completed_at TEXT,
@@ -158,6 +165,18 @@ function initializeProjectSchema(db: Database) {
 
   if (!sprintIdColumn) {
     db.exec("ALTER TABLE tasks ADD COLUMN sprint_id TEXT;");
+  }
+
+  const sprintNotesColumn = db
+    .query<{ name: string }, []>(`
+      SELECT name
+      FROM pragma_table_info('sprints')
+      WHERE name = 'retrospective_notes'
+    `)
+    .get();
+
+  if (!sprintNotesColumn) {
+    db.exec("ALTER TABLE sprints ADD COLUMN retrospective_notes TEXT NOT NULL DEFAULT '';");
   }
 }
 
@@ -476,6 +495,7 @@ function getActiveSprint(db: Database) {
         id,
         name,
         status,
+        retrospective_notes AS retrospectiveNotes,
         created_at AS createdAt,
         started_at AS startedAt,
         completed_at AS completedAt
@@ -494,6 +514,26 @@ function requireActiveSprint(db: Database) {
   }
 
   return sprint;
+}
+
+function listCompletedSprints(db: Database) {
+  return db.query<SprintHistoryRow, []>(`
+    SELECT
+      sprints.id,
+      sprints.name,
+      sprints.status,
+      sprints.retrospective_notes AS retrospectiveNotes,
+      sprints.created_at AS createdAt,
+      sprints.started_at AS startedAt,
+      sprints.completed_at AS completedAt,
+      COUNT(tasks.id) AS totalTasks,
+      COALESCE(SUM(CASE WHEN tasks.status = 'done' THEN 1 ELSE 0 END), 0) AS completedTasks
+    FROM sprints
+    LEFT JOIN tasks ON tasks.sprint_id = sprints.id
+    WHERE sprints.status = 'completed'
+    GROUP BY sprints.id
+    ORDER BY sprints.completed_at DESC, sprints.started_at DESC
+  `).all();
 }
 
 export function listProjects() {
@@ -700,6 +740,54 @@ export function completeActiveSprint(projectSlug: string) {
   });
 }
 
+export function updateSprintRetrospectiveNotes(
+  projectSlug: string,
+  sprintId: string,
+  retrospectiveNotes: string,
+) {
+  return withProjectDb(projectSlug, (db) => {
+    const sprint = db
+      .query<SprintRow, [string]>(`
+        SELECT
+          id,
+          name,
+          status,
+          retrospective_notes AS retrospectiveNotes,
+          created_at AS createdAt,
+          started_at AS startedAt,
+          completed_at AS completedAt
+        FROM sprints
+        WHERE id = ?
+      `)
+      .get(sprintId);
+
+    if (!sprint) {
+      throw new Error("Sprint not found");
+    }
+
+    db.query(`
+      UPDATE sprints
+      SET retrospective_notes = ?
+      WHERE id = ?
+    `).run(retrospectiveNotes.trim(), sprintId);
+
+    return db
+      .query<SprintRow, [string]>(`
+        SELECT
+          id,
+          name,
+          status,
+          retrospective_notes AS retrospectiveNotes,
+          created_at AS createdAt,
+          started_at AS startedAt,
+          completed_at AS completedAt
+        FROM sprints
+        WHERE id = ?
+      `)
+      .get(sprintId)!;
+  });
+}
+
 export function addTaskToActiveSprint(projectSlug: string, taskId: string) {
   return withProjectDb(projectSlug, (db) => {
     const task = requireTask(db, taskId);
@@ -873,6 +961,7 @@ export function getProjectBoard(projectSlug: string) {
   return withProjectDb(projectSlug, (db) => {
     const project = readProjectDetails(db);
     const activeSprint = getActiveSprint(db) ?? null;
+    const sprintHistory = listCompletedSprints(db);
     const epics = db
       .query<EpicRow, []>(`
         SELECT
@@ -926,7 +1015,7 @@ export function getProjectBoard(projectSlug: string) {
           .all(activeSprint.id)
       : [];
 
-    return { project, activeSprint, sprintTasks, epics };
+    return { project, activeSprint, sprintHistory, sprintTasks, epics };
   });
 }
 

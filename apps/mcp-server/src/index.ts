@@ -22,6 +22,7 @@ import {
   type DocumentationNodeKind,
   type TaskStatus,
   updateDocumentationNode,
+  updateSprintRetrospectiveNotes,
   updateTask,
 } from "../../server/src/db";
 
@@ -65,6 +66,7 @@ function formatProjectBoard(projectSlug: string) {
   return {
     project: board.project,
     activeSprint: board.activeSprint,
+    sprintHistory: board.sprintHistory,
     sprintTasks: board.sprintTasks,
     epics: board.epics,
     backlogTaskCount: board.epics.reduce((count, epic) => count + epic.tasks.length, 0),
@@ -514,6 +516,29 @@ server.registerTool(
       return successResult(`Completed the active sprint in "${projectSlug}".`, { sprintId });
     } catch (error) {
       return errorResult(error instanceof Error ? error.message : "Failed to complete sprint");
+    }
+  },
+);
+
+server.registerTool(
+  "update_sprint_retrospective_notes",
+  {
+    title: "Update sprint retrospective notes",
+    description: "Save retrospective notes for an active or completed sprint.",
+    inputSchema: {
+      projectSlug: z.string(),
+      sprintId: z.string(),
+      retrospectiveNotes: z.string(),
+    },
+  },
+  async ({ projectSlug, sprintId, retrospectiveNotes }) => {
+    try {
+      const sprint = updateSprintRetrospectiveNotes(projectSlug, sprintId, retrospectiveNotes);
+      return successResult(`Updated retrospective notes for sprint "${sprint.name}".`, sprint);
+    } catch (error) {
+      return errorResult(
+        error instanceof Error ? error.message : "Failed to update sprint retrospective notes",
+      );
     }
   },
 );

@@ -16,9 +16,15 @@ export type Sprint = {
   id: string;
   name: string;
   status: "active" | "completed";
+  retrospectiveNotes: string;
   createdAt: string;
   startedAt: string;
   completedAt: string | null;
+};
+
+export type SprintHistoryEntry = Sprint & {
+  totalTasks: number;
+  completedTasks: number;
 };
 
 export type TaskStatus = "todo" | "in_progress" | "done";
@@ -50,6 +56,7 @@ export type Epic = {
 export type Board = {
   project: ProjectDetails;
   activeSprint: Sprint | null;
+  sprintHistory: SprintHistoryEntry[];
   sprintTasks: SprintTask[];
   epics: Epic[];
 };
