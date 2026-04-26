@@ -398,6 +398,11 @@ main {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
+}
+
+.task-row-actions {
+  justify-content: flex-end;
 }
 
 .history-notes {
@@ -522,6 +527,127 @@ main {
   grid-template-columns: minmax(0, 1fr) 220px;
   gap: 0.85rem;
   align-items: end;
+}
+
+.backlog-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.backlog-sidebar,
+.backlog-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.backlog-overview-panel,
+.backlog-workspace-panel {
+  padding: 1.35rem;
+}
+
+.backlog-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.backlog-summary-card {
+  padding: 1rem;
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(73, 52, 25, 0.08);
+}
+
+.backlog-summary-card strong {
+  display: block;
+  font-size: 1.6rem;
+}
+
+.backlog-summary-card span {
+  color: var(--muted);
+}
+
+.backlog-overview-copy {
+  margin-bottom: 0;
+}
+
+.backlog-list-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.backlog-controls-compact {
+  grid-template-columns: minmax(0, 1.3fr) 220px 220px;
+}
+
+.backlog-task-list,
+.epic-directory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.backlog-task-row,
+.epic-directory-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1rem;
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(73, 52, 25, 0.08);
+}
+
+.backlog-task-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.backlog-task-heading {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.backlog-task-title,
+.epic-directory-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.backlog-task-description {
+  margin: 0;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.task-epic-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(104, 74, 176, 0.14);
+  color: #6a3fd0;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.backlog-task-actions {
+  justify-content: flex-end;
+}
+
+.sprint-history-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
 }
 
 .backlog-select-field {
@@ -666,22 +792,111 @@ main {
   border-color: rgba(141, 45, 26, 0.22);
 }
 
+.danger-solid-button {
+  background: #8d2d1a;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 2rem 1.5rem;
+  background: rgba(36, 24, 13, 0.35);
+  backdrop-filter: blur(8px);
+  overflow-y: auto;
+}
+
+.dialog-panel {
+  width: min(100%, 1080px);
+  padding: 1.35rem;
+}
+
+.confirmation-dialog {
+  width: min(100%, 640px);
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.task-dialog-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 360px);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.task-dialog-form,
+.task-dialog-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.task-dialog-textarea {
+  min-height: 320px;
+}
+
+.task-detail-card {
+  padding: 1rem;
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(73, 52, 25, 0.08);
+}
+
+.task-detail-card h3,
+.task-detail-card p {
+  margin-top: 0;
+}
+
+.task-detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.danger-card {
+  background: rgba(141, 45, 26, 0.08);
+}
+
 @media (max-width: 900px) {
   .masthead,
   .create-form,
   .project-card,
   .sprint-header,
   .sprint-task-row,
+  .backlog-task-row,
+  .epic-directory-row,
+  .sprint-history-summary,
   .doc-inline-form,
   .doc-editor-footer {
     flex-direction: column;
   }
 
+  .backlog-layout,
   .backlog-controls {
     grid-template-columns: 1fr;
   }
 
   .board-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .backlog-summary-grid,
+  .task-dialog-layout {
     grid-template-columns: 1fr;
   }
 
@@ -691,5 +906,14 @@ main {
 
   .project-metrics {
     text-align: left;
+  }
+
+  .dialog-backdrop {
+    padding: 1rem;
+  }
+
+  .dialog-header,
+  .dialog-actions {
+    flex-direction: column;
   }
 }

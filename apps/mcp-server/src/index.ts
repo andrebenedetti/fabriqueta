@@ -95,6 +95,29 @@ function getTaskFromBoard(projectSlug: string, taskId: string) {
   throw new Error("Task not found");
 }
 
+function getTaskContextFromProject(projectSlug: string, taskId: string) {
+  const board = getProjectBoard(projectSlug);
+
+  for (const epic of board.epics) {
+    const task = epic.tasks.find((candidate) => candidate.id === taskId);
+    if (task) {
+      return {
+        project: board.project,
+        activeSprint: board.activeSprint,
+        epic: {
+          id: epic.id,
+          title: epic.title,
+          description: epic.description,
+          position: epic.position,
+        },
+        task,
+      };
+    }
+  }
+
+  throw new Error("Task not found");
+}
+
 function findDocumentationNode(nodes: DocumentationNode[], nodeId: string): DocumentationNode | null {
   for (const node of nodes) {
     if (node.id === nodeId) {
@@ -211,6 +234,25 @@ server.registerResource(
       ],
     };
   },
+);
+
+server.registerResource(
+  "project-task",
+  new ResourceTemplate("fabriqueta://projects/{projectSlug}/tasks/{taskId}", { list: undefined }),
+  {
+    title: "Task context",
+    description: "A specific task with its full description, epic, and active sprint context.",
+    mimeType: "application/json",
+  },
+  async (uri, { projectSlug, taskId }) => ({
+    contents: [
+      {
+        uri: uri.href,
+        mimeType: "application/json",
+        text: jsonText(getTaskContextFromProject(singleValue(projectSlug), singleValue(taskId))),
+      },
+    ],
+  }),
 );
 
 server.registerResource(
@@ -415,6 +457,26 @@ server.registerTool(
       return successResult(`Loaded project board for "${projectSlug}".`, board);
     } catch (error) {
       return errorResult(error instanceof Error ? error.message : "Failed to load project board");
+    }
+  },
+);
+
+server.registerTool(
+  "get_task_context",
+  {
+    title: "Get task context",
+    description: "Read one task with its description, epic, and active sprint context.",
+    inputSchema: {
+      projectSlug: z.string(),
+      taskId: z.string(),
+    },
+  },
+  async ({ projectSlug, taskId }) => {
+    try {
+      const taskContext = getTaskContextFromProject(projectSlug, taskId);
+      return successResult(`Loaded task context for "${taskContext.task.title}".`, taskContext);
+    } catch (error) {
+      return errorResult(error instanceof Error ? error.message : "Failed to load task context");
     }
   },
 );

@@ -374,6 +374,7 @@ describe("MCP server", () => {
       const prompts = await client.listPrompts();
 
       expect(tools.tools.some((tool) => tool.name === "get_project_board")).toBe(true);
+      expect(tools.tools.some((tool) => tool.name === "get_task_context")).toBe(true);
       expect(tools.tools.some((tool) => tool.name === "update_task_status")).toBe(true);
       expect(tools.tools.some((tool) => tool.name === "get_project_documentation")).toBe(true);
       expect(tools.tools.some((tool) => tool.name === "create_documentation_node")).toBe(true);
@@ -388,6 +389,11 @@ describe("MCP server", () => {
       expect(
         resourceTemplates.resourceTemplates.some(
           (resource) => resource.uriTemplate === "fabriqueta://projects/{projectSlug}/sprint",
+        ),
+      ).toBe(true);
+      expect(
+        resourceTemplates.resourceTemplates.some(
+          (resource) => resource.uriTemplate === "fabriqueta://projects/{projectSlug}/tasks/{taskId}",
         ),
       ).toBe(true);
       expect(
@@ -556,6 +562,27 @@ describe("MCP server", () => {
         ],
       );
 
+      const taskContextResult = await client.callTool({
+        name: "get_task_context",
+        arguments: {
+          projectSlug: createdProject.slug,
+          taskId: createdTask.id,
+        },
+      });
+      const taskContext = taskContextResult.structuredContent as {
+        epic: { title: string };
+        task: { id: string; title: string; status: string; description: string };
+      };
+      expect(taskContext.epic.title).toBe("Operations");
+      expect(taskContext.task).toEqual(
+        expect.objectContaining({
+          id: createdTask.id,
+          title: "Take ownership of next task",
+          status: "in_progress",
+          description: "",
+        }),
+      );
+
       const sprintResource = await client.readResource({
         uri: `fabriqueta://projects/${createdProject.slug}/sprint`,
       });
@@ -612,6 +639,16 @@ describe("MCP server", () => {
       expect(pagePayload.content).toBe(
         "# Agent handoff\n\nKeep the product spec current while executing work.",
       );
+
+      const taskResource = await client.readResource({
+        uri: `fabriqueta://projects/${createdProject.slug}/tasks/${createdTask.id}`,
+      });
+      const taskPayload = JSON.parse(taskResource.contents[0]?.text ?? "{}") as {
+        epic: { title: string };
+        task: { id: string; title: string };
+      };
+      expect(taskPayload.epic.title).toBe("Operations");
+      expect(taskPayload.task.id).toBe(createdTask.id);
 
       const promptResult = await client.getPrompt({
         name: "execute-active-sprint",
