@@ -61,12 +61,35 @@ describe("HTTP API", () => {
     const secondEpicResult = await apiRequest("POST", `/api/projects/${alphaProject.slug}/epics`, {
       title: "Follow-up",
     });
+    const temporaryEpicResult = await apiRequest("POST", `/api/projects/${alphaProject.slug}/epics`, {
+      title: "Temporary epic",
+    });
 
     const firstEpic = firstEpicResult.payload?.epic as { id: string; title: string };
     const secondEpic = secondEpicResult.payload?.epic as { id: string; title: string };
+    const temporaryEpic = temporaryEpicResult.payload?.epic as { id: string; title: string };
 
     expect(firstEpic.title).toBe("Execution");
     expect(secondEpic.title).toBe("Follow-up");
+    expect(temporaryEpic.title).toBe("Temporary epic");
+
+    const updatedEpicResult = await apiRequest(
+      "PATCH",
+      `/api/projects/${alphaProject.slug}/epics/${firstEpic.id}`,
+      {
+        title: "Execution",
+        description: "Primary delivery work",
+      },
+    );
+    expect((updatedEpicResult.payload?.epic as { description: string }).description).toBe(
+      "Primary delivery work",
+    );
+
+    const deletedEpicResult = await apiRequest(
+      "DELETE",
+      `/api/projects/${alphaProject.slug}/epics/${temporaryEpic.id}`,
+    );
+    expect(deletedEpicResult.response.status).toBe(200);
 
     await apiRequest("POST", `/api/projects/${alphaProject.slug}/epics/${secondEpic.id}/move`, {
       direction: "up",
@@ -82,9 +105,34 @@ describe("HTTP API", () => {
       `/api/projects/${alphaProject.slug}/epics/${firstEpic.id}/tasks`,
       { title: "Implement backlog view" },
     );
+    const taskThreeResult = await apiRequest(
+      "POST",
+      `/api/projects/${alphaProject.slug}/epics/${firstEpic.id}/tasks`,
+      { title: "Temporary task" },
+    );
 
     const taskOne = taskOneResult.payload?.task as { id: string; title: string };
     const taskTwo = taskTwoResult.payload?.task as { id: string; title: string };
+    const taskThree = taskThreeResult.payload?.task as { id: string; title: string };
+
+    const updatedTaskResult = await apiRequest(
+      "PATCH",
+      `/api/projects/${alphaProject.slug}/tasks/${taskOne.id}`,
+      {
+        title: "Implement board view",
+        description: "Track work in active sprint columns",
+        status: "todo",
+      },
+    );
+    expect((updatedTaskResult.payload?.task as { description: string }).description).toBe(
+      "Track work in active sprint columns",
+    );
+
+    const deletedTaskResult = await apiRequest(
+      "DELETE",
+      `/api/projects/${alphaProject.slug}/tasks/${taskThree.id}`,
+    );
+    expect(deletedTaskResult.response.status).toBe(200);
 
     await apiRequest("POST", `/api/projects/${alphaProject.slug}/tasks/${taskTwo.id}/move`, {
       direction: "up",
@@ -306,6 +354,8 @@ describe("MCP server", () => {
       expect(tools.tools.some((tool) => tool.name === "update_task_status")).toBe(true);
       expect(tools.tools.some((tool) => tool.name === "get_project_documentation")).toBe(true);
       expect(tools.tools.some((tool) => tool.name === "create_documentation_node")).toBe(true);
+      expect(tools.tools.some((tool) => tool.name === "delete_epic")).toBe(true);
+      expect(tools.tools.some((tool) => tool.name === "delete_task")).toBe(true);
       expect(resources.resources.some((resource) => resource.uri === "fabriqueta://projects")).toBe(
         true,
       );
@@ -360,6 +410,20 @@ describe("MCP server", () => {
         },
       });
       const createdTask = createTaskResult.structuredContent as { id: string; title: string };
+      const throwawayTaskResult = await client.callTool({
+        name: "create_task",
+        arguments: {
+          projectSlug: createdProject.slug,
+          epicId: createdEpic.id,
+          title: "Throwaway task",
+        },
+      });
+      const throwawayTask = throwawayTaskResult.structuredContent as { id: string };
+      const throwawayEpicResult = await client.callTool({
+        name: "create_epic",
+        arguments: { projectSlug: createdProject.slug, title: "Throwaway epic" },
+      });
+      const throwawayEpic = throwawayEpicResult.structuredContent as { id: string };
 
       await client.callTool({
         name: "start_sprint",
@@ -375,6 +439,20 @@ describe("MCP server", () => {
           projectSlug: createdProject.slug,
           taskId: createdTask.id,
           status: "in_progress",
+        },
+      });
+      await client.callTool({
+        name: "delete_task",
+        arguments: {
+          projectSlug: createdProject.slug,
+          taskId: throwawayTask.id,
+        },
+      });
+      await client.callTool({
+        name: "delete_epic",
+        arguments: {
+          projectSlug: createdProject.slug,
+          epicId: throwawayEpic.id,
         },
       });
 
@@ -429,6 +507,14 @@ describe("MCP server", () => {
       expect(board.sprintTasks).toEqual([
         expect.objectContaining({ id: createdTask.id, status: "in_progress" }),
       ]);
+      expect((board as { epics?: Array<{ title: string; tasks: Array<{ id: string }> }> }).epics).toEqual(
+        [
+          expect.objectContaining({
+            title: "Operations",
+            tasks: [expect.objectContaining({ id: createdTask.id })],
+          }),
+        ],
+      );
 
       const sprintResource = await client.readResource({
         uri: `fabriqueta://projects/${createdProject.slug}/sprint`,

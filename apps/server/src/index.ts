@@ -5,7 +5,9 @@ import {
   createEpic,
   createProject,
   createTask,
+  deleteEpic,
   deleteDocumentationNode,
+  deleteTask,
   getProjectBoard,
   getProjectDocumentation,
   listProjects,
@@ -136,6 +138,16 @@ export async function handleRequest(request: Request) {
     }
 
     if (
+      request.method === "DELETE" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "epics" &&
+      parts.length === 5
+    ) {
+      return json({ epicId: deleteEpic(parts[2], parts[4]) });
+    }
+
+    if (
       request.method === "POST" &&
       parts[0] === "api" &&
       parts[1] === "projects" &&
@@ -175,6 +187,16 @@ export async function handleRequest(request: Request) {
         },
         201,
       );
+    }
+
+    if (
+      request.method === "DELETE" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "tasks" &&
+      parts.length === 5
+    ) {
+      return json({ taskId: deleteTask(parts[2], parts[4]) });
     }
 
     if (

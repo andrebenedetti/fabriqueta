@@ -341,11 +341,20 @@ main {
   gap: 0.45rem;
 }
 
+.wrap-actions {
+  flex-wrap: wrap;
+}
+
 .inline-actions button {
   padding: 0.6rem 0.85rem;
   border-radius: 999px;
   background: rgba(36, 24, 13, 0.08);
   color: var(--text);
+}
+
+.danger-inline-button {
+  color: #8d2d1a;
+  background: rgba(141, 45, 26, 0.1);
 }
 
 .task-list {
@@ -389,6 +398,30 @@ main {
   gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-todo {
+  background: rgba(177, 132, 51, 0.14);
+  color: #8a6421;
+}
+
+.status-in_progress {
+  background: rgba(38, 110, 153, 0.14);
+  color: #225f83;
+}
+
+.status-done {
+  background: rgba(43, 122, 79, 0.14);
+  color: #256a45;
 }
 
 .sprint-badge {
@@ -437,6 +470,10 @@ main {
 .ghost-button:disabled {
   opacity: 0.55;
   cursor: wait;
+}
+
+.inline-textarea {
+  min-height: 96px;
 }
 
 .task-empty,

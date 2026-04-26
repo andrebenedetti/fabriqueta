@@ -570,6 +570,25 @@ export function updateEpic(
   });
 }
 
+export function deleteEpic(projectSlug: string, epicId: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const remove = db.transaction(() => {
+      const epic = requireEpic(db, epicId);
+
+      db.query(`DELETE FROM epics WHERE id = ?`).run(epic.id);
+      db.query(`
+        UPDATE epics
+        SET position = position - 1
+        WHERE position > ?
+      `).run(epic.position);
+
+      return epic.id;
+    });
+
+    return remove();
+  });
+}
+
 export function createTask(projectSlug: string, epicId: string, input: { title: string; description?: string }) {
   return withProjectDb(projectSlug, (db) => {
     requireEpic(db, epicId);
@@ -623,6 +642,25 @@ export function updateTask(
     `).run(title, description, status, taskId);
 
     return requireTask(db, taskId);
+  });
+}
+
+export function deleteTask(projectSlug: string, taskId: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const remove = db.transaction(() => {
+      const task = requireTask(db, taskId);
+
+      db.query(`DELETE FROM tasks WHERE id = ?`).run(task.id);
+      db.query(`
+        UPDATE tasks
+        SET position = position - 1
+        WHERE epic_id = ? AND position > ?
+      `).run(task.epicId, task.position);
+
+      return task.id;
+    });
+
+    return remove();
   });
 }
 

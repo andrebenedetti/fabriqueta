@@ -6,14 +6,18 @@ import {
   createDocumentationNode,
   createEpic,
   createTask,
+  deleteEpic,
   deleteDocumentationNode,
+  deleteTask,
   fetchBoard,
   fetchDocumentation,
   moveEpic,
   moveTask,
   removeTaskFromSprint,
   startSprint,
+  updateEpic,
   updateDocumentationNode,
+  updateTask,
   updateTaskStatus,
 } from "../api";
 import { EpicCard } from "../components/EpicCard";
@@ -256,6 +260,40 @@ function ProjectPage() {
       });
       await loadBoard();
     }, "Failed to update task status");
+  }
+
+  async function handleUpdateEpicDetails(
+    epicId: string,
+    input: { title: string; description?: string },
+  ) {
+    await runMutation(async () => {
+      await updateEpic(projectSlug, epicId, input);
+      await loadBoard();
+    }, "Failed to update epic");
+  }
+
+  async function handleDeleteEpic(epicId: string) {
+    await runMutation(async () => {
+      await deleteEpic(projectSlug, epicId);
+      await loadBoard();
+    }, "Failed to delete epic");
+  }
+
+  async function handleUpdateTaskDetails(
+    taskId: string,
+    input: { title: string; description?: string; status?: TaskStatus },
+  ) {
+    await runMutation(async () => {
+      await updateTask(projectSlug, taskId, input);
+      await loadBoard();
+    }, "Failed to update task");
+  }
+
+  async function handleDeleteTask(taskId: string) {
+    await runMutation(async () => {
+      await deleteTask(projectSlug, taskId);
+      await loadBoard();
+    }, "Failed to delete task");
   }
 
   async function handleCreateDocumentationDirectory(event: FormEvent<HTMLFormElement>) {
@@ -625,9 +663,13 @@ function ProjectPage() {
                   key={epic.id}
                   onAddTaskToSprint={handleAddTaskToSprint}
                   onCreateTask={handleCreateTask}
+                  onDeleteEpic={handleDeleteEpic}
+                  onDeleteTask={handleDeleteTask}
                   onMoveEpic={handleMoveEpic}
                   onMoveTask={handleMoveTask}
                   onRemoveTaskFromSprint={handleRemoveTaskFromSprint}
+                  onUpdateEpic={handleUpdateEpicDetails}
+                  onUpdateTask={handleUpdateTaskDetails}
                 />
               ))
             ) : (

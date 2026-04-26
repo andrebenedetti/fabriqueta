@@ -8,7 +8,9 @@ import {
   createEpic,
   createProject,
   createTask,
+  deleteEpic,
   deleteDocumentationNode,
+  deleteTask,
   getProjectBoard,
   getProjectDocumentation,
   listProjects,
@@ -623,6 +625,53 @@ server.registerTool(
       return successResult(`Moved task "${task.title}" ${direction}.`, task);
     } catch (error) {
       return errorResult(error instanceof Error ? error.message : "Failed to move task");
+    }
+  },
+);
+
+server.registerTool(
+  "delete_epic",
+  {
+    title: "Delete epic",
+    description: "Delete an epic from the backlog. This also deletes its tasks.",
+    inputSchema: {
+      projectSlug: z.string(),
+      epicId: z.string(),
+    },
+  },
+  async ({ projectSlug, epicId }) => {
+    try {
+      const board = getProjectBoard(projectSlug);
+      const epic = board.epics.find((candidate) => candidate.id === epicId);
+      if (!epic) {
+        throw new Error("Epic not found");
+      }
+
+      deleteEpic(projectSlug, epicId);
+      return successResult(`Deleted epic "${epic.title}".`, { epicId });
+    } catch (error) {
+      return errorResult(error instanceof Error ? error.message : "Failed to delete epic");
+    }
+  },
+);
+
+server.registerTool(
+  "delete_task",
+  {
+    title: "Delete task",
+    description: "Delete a task from a project backlog or sprint.",
+    inputSchema: {
+      projectSlug: z.string(),
+      taskId: z.string(),
+    },
+  },
+  async ({ projectSlug, taskId }) => {
+    try {
+      const task = getTaskFromBoard(projectSlug, taskId);
+      deleteTask(projectSlug, taskId);
+      return successResult(`Deleted task "${task.title}".`, { taskId });
+    } catch (error) {
+      return errorResult(error instanceof Error ? error.message : "Failed to delete task");
     }
   },
 );

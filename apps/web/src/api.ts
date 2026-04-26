@@ -43,6 +43,23 @@ export async function createEpic(projectSlug: string, title: string, description
   });
 }
 
+export async function updateEpic(
+  projectSlug: string,
+  epicId: string,
+  input: { title: string; description?: string },
+) {
+  return request(`/api/projects/${projectSlug}/epics/${epicId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteEpic(projectSlug: string, epicId: string) {
+  return request(`/api/projects/${projectSlug}/epics/${epicId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function moveEpic(projectSlug: string, epicId: string, direction: "up" | "down") {
   return request(`/api/projects/${projectSlug}/epics/${epicId}/move`, {
     method: "POST",
@@ -69,15 +86,29 @@ export async function moveTask(projectSlug: string, taskId: string, direction: "
   });
 }
 
-export async function updateTaskStatus(
+export async function updateTask(
   projectSlug: string,
   taskId: string,
-  input: { title: string; description?: string; status: "todo" | "in_progress" | "done" },
+  input: { title: string; description?: string; status?: "todo" | "in_progress" | "done" },
 ) {
   return request(`/api/projects/${projectSlug}/tasks/${taskId}`, {
     method: "PATCH",
     body: JSON.stringify(input),
   });
+}
+
+export async function deleteTask(projectSlug: string, taskId: string) {
+  return request(`/api/projects/${projectSlug}/tasks/${taskId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function updateTaskStatus(
+  projectSlug: string,
+  taskId: string,
+  input: { title: string; description?: string; status: "todo" | "in_progress" | "done" },
+) {
+  return updateTask(projectSlug, taskId, input);
 }
 
 export async function startSprint(projectSlug: string, name: string) {
