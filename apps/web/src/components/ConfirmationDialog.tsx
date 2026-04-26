@@ -16,30 +16,17 @@ export function ConfirmationDialog({
   title,
 }: ConfirmationDialogProps) {
   return (
-    <div aria-hidden={false} className="dialog-backdrop" role="presentation">
-      <section aria-modal="true" className="panel dialog-panel confirmation-dialog" role="dialog">
-        <div className="dialog-header">
-          <div className="section-heading">
-            <p className="eyebrow">Please confirm</p>
-            <h2>{title}</h2>
-          </div>
-          <button className="ghost-button" disabled={isBusy} onClick={onCancel} type="button">
+    <div aria-hidden={false} className="overlay-backdrop" role="presentation">
+      <section aria-modal="true" className="confirmation-modal" role="dialog">
+        <div className="detail-section-heading">
+          <h3>{title}</h3>
+        </div>
+        <p className="section-subtitle">{message}</p>
+        <div className="toolbar-actions">
+          <button className="button button-secondary" disabled={isBusy} onClick={onCancel} type="button">
             Cancel
           </button>
-        </div>
-
-        <p className="lead">{message}</p>
-
-        <div className="dialog-actions">
-          <button className="ghost-button" disabled={isBusy} onClick={onCancel} type="button">
-            Keep it
-          </button>
-          <button
-            className="primary-button danger-solid-button"
-            disabled={isBusy}
-            onClick={() => void onConfirm()}
-            type="button"
-          >
+          <button className="button button-danger" disabled={isBusy} onClick={() => void onConfirm()} type="button">
             {confirmLabel}
           </button>
         </div>

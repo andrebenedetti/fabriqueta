@@ -8,7 +8,6 @@ type TaskDetailsDialogProps = {
   onAddTaskToSprint: (taskId: string) => Promise<void>;
   onClose: () => void;
   onDeleteTask: () => void;
-  onMoveTask: (taskId: string, direction: "up" | "down") => Promise<void>;
   onRemoveTaskFromSprint: (taskId: string) => Promise<void>;
   onSaveTask: (
     taskId: string,
@@ -27,18 +26,15 @@ function lifecycleCopy(task: Task, activeSprintId: string | null) {
     };
   }
 
-  const statusLabel =
-    task.status === "in_progress" ? "In progress" : task.status === "done" ? "Done" : "To-do";
-
   return {
-    badge: statusLabel,
+    badge: "Active sprint",
     detail: "This task is currently assigned to the active sprint.",
     actionLabel: "Move to backlog",
     inActiveSprint: true,
   };
 }
 
-function statusBadgeLabel(status: TaskStatus) {
+function statusLabel(status: TaskStatus) {
   if (status === "in_progress") {
     return "In progress";
   }
@@ -47,7 +43,7 @@ function statusBadgeLabel(status: TaskStatus) {
     return "Done";
   }
 
-  return "To-do";
+  return "To do";
 }
 
 export function TaskDetailsDialog({
@@ -57,7 +53,6 @@ export function TaskDetailsDialog({
   onAddTaskToSprint,
   onClose,
   onDeleteTask,
-  onMoveTask,
   onRemoveTaskFromSprint,
   onSaveTask,
   task,
@@ -84,127 +79,118 @@ export function TaskDetailsDialog({
   }
 
   return (
-    <div aria-hidden={false} className="dialog-backdrop" role="presentation">
-      <section aria-modal="true" className="panel dialog-panel task-dialog" role="dialog">
-        <div className="dialog-header">
-          <div className="section-heading">
-            <p className="eyebrow">Task Details</p>
-            <h2>{title}</h2>
+    <div aria-hidden={false} className="overlay-backdrop overlay-right" role="presentation">
+      <section aria-labelledby="task-drawer-title" aria-modal="true" className="task-drawer" role="dialog">
+        <div className="drawer-header">
+          <div>
+            <p className="section-kicker">Task</p>
+            <h2 id="task-drawer-title">{task.title}</h2>
+            <p className="section-subtitle">{epicTitle}</p>
           </div>
-          <button className="ghost-button" disabled={isMutating} onClick={onClose} type="button">
+          <button className="ghost-button compact-button" onClick={onClose} type="button">
             Close
           </button>
         </div>
 
-        <div className="task-dialog-layout">
-          <form className="task-dialog-form" onSubmit={handleSubmit}>
-            <label className="field">
-              <span>Task title</span>
-              <input onChange={(event) => setTitle(event.target.value)} value={title} />
-            </label>
+        <div className="drawer-layout">
+          <form className="drawer-main" onSubmit={handleSubmit}>
+            <section className="detail-section">
+              <div className="detail-section-heading">
+                <h3>Overview</h3>
+                <span className="detail-chip">{lifecycle.badge}</span>
+              </div>
 
-            <label className="field">
-              <span>Description</span>
-              <textarea
-                className="task-dialog-textarea"
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Describe the outcome, constraints, and any implementation notes."
-                value={description}
-              />
-            </label>
+              <label className="field">
+                <span>Title</span>
+                <input onChange={(event) => setTitle(event.target.value)} value={title} />
+              </label>
 
-            <label className="field">
-              <span>Status</span>
-              <select onChange={(event) => setStatus(event.target.value as TaskStatus)} value={status}>
-                <option value="todo">To-do</option>
-                <option value="in_progress">In progress</option>
-                <option value="done">Done</option>
-              </select>
-            </label>
+              <label className="field">
+                <span>Description</span>
+                <textarea
+                  className="drawer-textarea"
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Describe the outcome, constraints, or implementation notes."
+                  value={description}
+                />
+              </label>
 
-            <div className="dialog-actions">
-              <button className="primary-button" disabled={isMutating} type="submit">
-                Save task
-              </button>
-              <button className="ghost-button" disabled={isMutating} onClick={onClose} type="button">
-                Done
-              </button>
+              <label className="field">
+                <span>Status</span>
+                <select onChange={(event) => setStatus(event.target.value as TaskStatus)} value={status}>
+                  <option value="todo">To do</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="done">Done</option>
+                </select>
+              </label>
+            </section>
+
+            <div className="drawer-footer">
+              <div className="drawer-footer-meta">
+                <span>{lifecycle.detail}</span>
+                <span>Task {task.position + 1} in {epicTitle}</span>
+              </div>
+              <div className="toolbar-actions">
+                <button className="button button-secondary" onClick={onClose} type="button">
+                  Cancel
+                </button>
+                <button className="button button-primary" disabled={isMutating} type="submit">
+                  Save task
+                </button>
+              </div>
             </div>
           </form>
 
-          <aside className="task-dialog-sidebar">
-            <div className="task-detail-card">
-              <p className="eyebrow">Context</p>
-              <h3>{epicTitle}</h3>
-              <p className="muted">{lifecycle.detail}</p>
-              <div className="task-meta">
-                <span className={`status-badge status-${status}`}>
-                  {lifecycle.inActiveSprint ? statusBadgeLabel(status) : lifecycle.badge}
-                </span>
-                <span className="sprint-badge">Task {task.position + 1}</span>
+          <aside className="drawer-sidebar">
+            <section className="detail-section">
+              <div className="detail-section-heading">
+                <h3>Context</h3>
               </div>
-            </div>
+              <div className="signal-stack">
+                <div className={`signal-pill status-${task.status}`}>Status: {statusLabel(task.status)}</div>
+                <div className="signal-pill">Epic: {epicTitle}</div>
+                <div className="signal-pill">Task {task.position + 1}</div>
+              </div>
+            </section>
 
-            <div className="task-detail-card">
-              <p className="eyebrow">Workflow</p>
-              <div className="task-detail-actions">
-                {activeSprintId ? (
-                  lifecycle.inActiveSprint ? (
-                    <button
-                      className="secondary-button"
-                      disabled={isMutating}
-                      onClick={() => void onRemoveTaskFromSprint(task.id)}
-                      type="button"
-                    >
-                      {lifecycle.actionLabel}
-                    </button>
-                  ) : (
-                    <button
-                      className="secondary-button"
-                      disabled={isMutating}
-                      onClick={() => void onAddTaskToSprint(task.id)}
-                      type="button"
-                    >
-                      {lifecycle.actionLabel}
-                    </button>
-                  )
+            <section className="detail-section">
+              <div className="detail-section-heading">
+                <h3>Sprint</h3>
+              </div>
+              {activeSprintId ? (
+                lifecycle.inActiveSprint ? (
+                  <button
+                    className="button button-secondary button-block"
+                    disabled={isMutating}
+                    onClick={() => void onRemoveTaskFromSprint(task.id)}
+                    type="button"
+                  >
+                    Move to backlog
+                  </button>
                 ) : (
-                  <p className="muted">Start a sprint to move this task onto the board.</p>
-                )}
+                  <button
+                    className="button button-secondary button-block"
+                    disabled={isMutating}
+                    onClick={() => void onAddTaskToSprint(task.id)}
+                    type="button"
+                  >
+                    Add to sprint
+                  </button>
+                )
+              ) : (
+                <p className="empty-inline-copy">Start a sprint to move this task onto the board.</p>
+              )}
+            </section>
 
-                <div className="inline-actions wrap-actions">
-                  <button
-                    className="ghost-button"
-                    disabled={isMutating}
-                    onClick={() => void onMoveTask(task.id, "up")}
-                    type="button"
-                  >
-                    Move up
-                  </button>
-                  <button
-                    className="ghost-button"
-                    disabled={isMutating}
-                    onClick={() => void onMoveTask(task.id, "down")}
-                    type="button"
-                  >
-                    Move down
-                  </button>
-                </div>
+            <section className="detail-section detail-danger">
+              <div className="detail-section-heading">
+                <h3>Danger zone</h3>
               </div>
-            </div>
-
-            <div className="task-detail-card danger-card">
-              <p className="eyebrow">Danger Zone</p>
-              <p className="muted">Deleting a task removes it from the backlog and sprint history views.</p>
-              <button
-                className="ghost-button danger-button"
-                disabled={isMutating}
-                onClick={onDeleteTask}
-                type="button"
-              >
+              <p className="empty-inline-copy">Deleting this task removes it from the backlog and sprint workspace.</p>
+              <button className="button button-danger button-block" onClick={onDeleteTask} type="button">
                 Delete task
               </button>
-            </div>
+            </section>
           </aside>
         </div>
       </section>

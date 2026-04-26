@@ -1,6 +1,13 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Link, createRoute, useNavigate } from "@tanstack/react-router";
+import { createRoute, useNavigate } from "@tanstack/react-router";
 import { createProject, fetchProjects } from "../api";
+import { AppShell, type ShellNavSection } from "../components/AppShell";
+import {
+  CommandPalette,
+  type CommandAction,
+} from "../components/CommandPalette";
+import { Icon } from "../components/icons";
+import { useThemeMode } from "../frontendState";
 import type { Project } from "../types";
 import { Route as RootRoute } from "./__root";
 
@@ -12,11 +19,14 @@ export const Route = createRoute({
 
 function ProjectsHomePage() {
   const navigate = useNavigate({ from: "/" });
+  const [theme, setTheme] = useThemeMode();
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectName, setProjectName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   async function loadProjects() {
     setIsLoading(true);
@@ -24,8 +34,13 @@ function ProjectsHomePage() {
     try {
       const data = await fetchProjects();
       setProjects(data.projects);
+      setError(null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load projects");
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Failed to load projects",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -45,93 +60,233 @@ function ProjectsHomePage() {
     setIsCreating(true);
 
     try {
-      const { project } = await createProject(projectName);
+      const { project } = await createProject(projectName.trim());
       setProjectName("");
+      setIsCreateOpen(false);
       await loadProjects();
       await navigate({
         to: "/projects/$projectSlug",
         params: { projectSlug: project.slug },
+        search: { view: "overview" },
       });
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Failed to create project");
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : "Failed to create project",
+      );
     } finally {
       setIsCreating(false);
     }
   }
 
+  const navSections: ShellNavSection[] = [
+    {
+      label: "Workspace",
+      items: [
+        { id: "home", label: "Projects", icon: "home", active: true },
+        {
+          id: "create",
+          label: "Create project",
+          icon: "projects",
+          onClick: () => setIsCreateOpen(true),
+        },
+      ],
+    },
+  ];
+
+  const commandActions: CommandAction[] = [
+    {
+      id: "create-project",
+      label: "Create project",
+      hint: "Start a new workspace",
+      icon: "plus",
+      onSelect: () => setIsCreateOpen(true),
+    },
+    ...projects.map((project) => ({
+      id: `project-${project.slug}`,
+      label: project.name,
+      hint: `Open /${project.slug}`,
+      icon: "projects" as const,
+      keywords: `${project.slug}`,
+      onSelect: () =>
+        void navigate({
+          to: "/projects/$projectSlug",
+          params: { projectSlug: project.slug },
+          search: { view: "overview" },
+        }),
+    })),
+  ];
+
   return (
-    <div className="page-shell">
-      <header className="panel masthead">
-        <div>
-          <p className="eyebrow">Fabriqueta</p>
-          <h1>Projects live as their own SQLite files.</h1>
-          <p className="lead">
-            Each project is self-contained. Fabriqueta manages itself, and any future project gets
-            its own database file beside it.
-          </p>
-        </div>
-      </header>
-
-      <section className="panel create-panel">
-        <div className="section-heading">
-          <p className="eyebrow">Create Project</p>
-          <h2>Start a new workspace</h2>
-        </div>
-
-        <form className="create-form" onSubmit={handleCreateProject}>
-          <label className="field grow">
-            <span>Project name</span>
-            <input
-              onChange={(event) => setProjectName(event.target.value)}
-              placeholder="Inventory revamp"
-              value={projectName}
-            />
-          </label>
-
-          <button className="primary-button" disabled={isCreating} type="submit">
-            {isCreating ? "Creating..." : "Create project"}
+    <>
+      <AppShell
+        commandLabel="Jump to a project"
+        navSections={navSections}
+        onCommandClick={() => setIsCommandOpen(true)}
+        onQuickCreate={() => setIsCreateOpen(true)}
+        onThemeToggle={() => setTheme(theme === "light" ? "dark" : "light")}
+        pageHeader={
+          <div className="page-header">
+            <div>
+              <p className="section-kicker">Projects</p>
+              <h1>Choose a workspace.</h1>
+              <p className="section-subtitle">
+                Each project keeps backlog, sprint board, history, and
+                documentation in one interface.
+              </p>
+            </div>
+          </div>
+        }
+        sidebarMeta={
+          <div className="sidebar-note">
+            <p>Available today</p>
+            <small>
+              Projects, epics, tasks, sprint planning, sprint board, sprint
+              history, and docs.
+            </small>
+          </div>
+        }
+        themeLabel={
+          theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+        }
+        topbarMeta={
+          <button
+            className="icon-button"
+            onClick={() => setIsCommandOpen(true)}
+            type="button"
+          >
+            <Icon name="search" />
           </button>
-        </form>
-      </section>
-
-      {error ? <div className="error-banner">{error}</div> : null}
-
-      <section className="panel list-panel">
-        <div className="section-heading">
-          <p className="eyebrow">Existing Projects</p>
-          <h2>Choose a project</h2>
-        </div>
-
-        {isLoading ? (
-          <p className="muted">Loading projects...</p>
-        ) : projects.length === 0 ? (
-          <div className="empty-state">
-            <h3>No projects yet</h3>
-            <p>Create the first project to start managing epics and tasks.</p>
+        }
+      >
+        <section className="panel-section">
+          <div className="section-heading-row">
+            <div>
+              <p className="section-kicker">Workspaces</p>
+              <h2>Open a project</h2>
+            </div>
+            <button
+              className="button button-primary"
+              onClick={() => setIsCreateOpen(true)}
+              type="button"
+            >
+              Create project
+            </button>
           </div>
-        ) : (
-          <div className="project-list">
-            {projects.map((project) => (
-              <Link
-                className="project-card"
-                key={project.slug}
-                params={{ projectSlug: project.slug }}
-                to="/projects/$projectSlug"
+
+          {isLoading ? (
+            <div className="skeleton-grid">
+              <div className="skeleton-card" />
+              <div className="skeleton-card" />
+              <div className="skeleton-card" />
+            </div>
+          ) : projects.length ? (
+            <div className="project-card-grid">
+              {projects.map((project) => (
+                <button
+                  className="workspace-card"
+                  key={project.slug}
+                  onClick={() =>
+                    void navigate({
+                      to: "/projects/$projectSlug",
+                      params: { projectSlug: project.slug },
+                      search: { view: "overview" },
+                    })
+                  }
+                  type="button"
+                >
+                  <div className="workspace-card-header">
+                    <div>
+                      <p className="section-kicker">/{project.slug}</p>
+                      <h3>{project.name}</h3>
+                    </div>
+                  </div>
+                  <div className="metric-row">
+                    <span>Epics</span>
+                    <strong>{project.epicCount}</strong>
+                  </div>
+                  <div className="metric-row">
+                    <span>Tasks</span>
+                    <strong>{project.taskCount}</strong>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-placeholder">
+              <h3>No projects yet</h3>
+              <p>
+                Create your first workspace to start managing epics, tasks,
+                sprints, and docs.
+              </p>
+              <button
+                className="button button-primary"
+                onClick={() => setIsCreateOpen(true)}
+                type="button"
               >
-                <div>
-                  <p className="eyebrow">/{project.slug}.sqlite</p>
-                  <h3>{project.name}</h3>
-                </div>
+                Create project
+              </button>
+            </div>
+          )}
 
-                <div className="project-metrics">
-                  <span>{project.epicCount} epics</span>
-                  <span>{project.taskCount} tasks</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
+          {error ? <div className="inline-banner danger">{error}</div> : null}
+        </section>
+      </AppShell>
+
+      <CommandPalette
+        actions={commandActions}
+        isOpen={isCommandOpen}
+        onClose={() => setIsCommandOpen(false)}
+      />
+
+      {isCreateOpen ? (
+        <div
+          aria-hidden={false}
+          className="overlay-backdrop"
+          role="presentation"
+        >
+          <section
+            aria-modal="true"
+            className="confirmation-modal create-modal"
+            role="dialog"
+          >
+            <div className="detail-section-heading">
+              <h3>Create project</h3>
+            </div>
+            <p className="section-subtitle">
+              Start a new workspace for product work and documentation.
+            </p>
+            <form className="stack-form" onSubmit={handleCreateProject}>
+              <label className="field">
+                <span>Project name</span>
+                <input
+                  autoFocus
+                  onChange={(event) => setProjectName(event.target.value)}
+                  placeholder="Platform redesign"
+                  value={projectName}
+                />
+              </label>
+              <div className="toolbar-actions">
+                <button
+                  className="button button-secondary"
+                  onClick={() => setIsCreateOpen(false)}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="button button-primary"
+                  disabled={isCreating}
+                  type="submit"
+                >
+                  {isCreating ? "Creating..." : "Create project"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+    </>
   );
 }
