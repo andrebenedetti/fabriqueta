@@ -116,6 +116,57 @@ describe("HTTP API", () => {
       status: "done",
     });
 
+    const docsDirectoryResult = await apiRequest(
+      "POST",
+      `/api/projects/${alphaProject.slug}/documentation/nodes`,
+      {
+        kind: "directory",
+        name: "product",
+      },
+    );
+    const docsDirectory = docsDirectoryResult.payload?.node as { id: string; name: string };
+
+    const nestedDirectoryResult = await apiRequest(
+      "POST",
+      `/api/projects/${alphaProject.slug}/documentation/nodes`,
+      {
+        kind: "directory",
+        parentId: docsDirectory.id,
+        name: "flows",
+      },
+    );
+    const nestedDirectory = nestedDirectoryResult.payload?.node as { id: string; name: string };
+
+    const docsPageResult = await apiRequest(
+      "POST",
+      `/api/projects/${alphaProject.slug}/documentation/nodes`,
+      {
+        kind: "page",
+        parentId: nestedDirectory.id,
+        name: "checkout",
+        content: "# Checkout\n\nCapture the end-to-end payment flow.",
+      },
+    );
+    const docsPage = docsPageResult.payload?.node as { id: string; name: string };
+
+    expect(docsPage.name).toBe("checkout.md");
+
+    await apiRequest(
+      "PATCH",
+      `/api/projects/${alphaProject.slug}/documentation/nodes/${nestedDirectory.id}`,
+      {
+        name: "journeys",
+      },
+    );
+    await apiRequest(
+      "PATCH",
+      `/api/projects/${alphaProject.slug}/documentation/nodes/${docsPage.id}`,
+      {
+        name: "checkout-happy-path",
+        content: "# Checkout happy path\n\nDocument the ideal buyer journey.",
+      },
+    );
+
     const alphaBoardResult = await apiRequest("GET", `/api/projects/${alphaProject.slug}/board`);
     expect(alphaBoardResult.response.status).toBe(200);
 
@@ -138,6 +189,42 @@ describe("HTTP API", () => {
       status: "done",
     });
 
+    const alphaDocumentationResult = await apiRequest(
+      "GET",
+      `/api/projects/${alphaProject.slug}/documentation`,
+    );
+    expect(alphaDocumentationResult.response.status).toBe(200);
+
+    const alphaDocumentation = alphaDocumentationResult.payload as {
+      nodes: Array<{
+        name: string;
+        kind: string;
+        children: Array<{
+          name: string;
+          children: Array<{ name: string; content: string; path: string }>;
+        }>;
+      }>;
+    };
+
+    expect(alphaDocumentation.nodes).toEqual([
+      expect.objectContaining({
+        name: "product",
+        kind: "directory",
+        children: [
+          expect.objectContaining({
+            name: "journeys",
+            children: [
+              expect.objectContaining({
+                name: "checkout-happy-path.md",
+                path: "product/journeys/checkout-happy-path.md",
+                content: "# Checkout happy path\n\nDocument the ideal buyer journey.",
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]);
+
     const betaBoardResult = await apiRequest("GET", `/api/projects/${betaProject.slug}/board`);
     const betaBoard = betaBoardResult.payload as {
       activeSprint: null;
@@ -148,6 +235,26 @@ describe("HTTP API", () => {
     expect(betaBoard.activeSprint).toBeNull();
     expect(betaBoard.sprintTasks).toHaveLength(0);
     expect(betaBoard.epics).toHaveLength(0);
+
+    const betaDocumentationResult = await apiRequest(
+      "GET",
+      `/api/projects/${betaProject.slug}/documentation`,
+    );
+    const betaDocumentation = betaDocumentationResult.payload as { nodes: unknown[] };
+    expect(betaDocumentation.nodes).toHaveLength(0);
+
+    const deleteDocumentationResult = await apiRequest(
+      "DELETE",
+      `/api/projects/${alphaProject.slug}/documentation/nodes/${docsDirectory.id}`,
+    );
+    expect(deleteDocumentationResult.response.status).toBe(200);
+
+    const docsAfterDeleteResult = await apiRequest(
+      "GET",
+      `/api/projects/${alphaProject.slug}/documentation`,
+    );
+    const docsAfterDelete = docsAfterDeleteResult.payload as { nodes: unknown[] };
+    expect(docsAfterDelete.nodes).toHaveLength(0);
 
     const completeSprintResult = await apiRequest(
       "POST",
@@ -197,6 +304,8 @@ describe("MCP server", () => {
 
       expect(tools.tools.some((tool) => tool.name === "get_project_board")).toBe(true);
       expect(tools.tools.some((tool) => tool.name === "update_task_status")).toBe(true);
+      expect(tools.tools.some((tool) => tool.name === "get_project_documentation")).toBe(true);
+      expect(tools.tools.some((tool) => tool.name === "create_documentation_node")).toBe(true);
       expect(resources.resources.some((resource) => resource.uri === "fabriqueta://projects")).toBe(
         true,
       );
@@ -205,10 +314,24 @@ describe("MCP server", () => {
           (resource) => resource.uriTemplate === "fabriqueta://projects/{projectSlug}/sprint",
         ),
       ).toBe(true);
-      expect(prompts.prompts.map((prompt) => prompt.name)).toEqual([
-        "plan-next-sprint",
-        "execute-active-sprint",
-      ]);
+      expect(
+        resourceTemplates.resourceTemplates.some(
+          (resource) =>
+            resource.uriTemplate === "fabriqueta://projects/{projectSlug}/documentation",
+        ),
+      ).toBe(true);
+      expect(
+        resourceTemplates.resourceTemplates.some(
+          (resource) =>
+            resource.uriTemplate ===
+            "fabriqueta://projects/{projectSlug}/documentation/nodes/{nodeId}",
+        ),
+      ).toBe(true);
+      expect(prompts.prompts.some((prompt) => prompt.name === "plan-next-sprint")).toBe(true);
+      expect(prompts.prompts.some((prompt) => prompt.name === "execute-active-sprint")).toBe(true);
+      expect(
+        prompts.prompts.some((prompt) => prompt.name === "review-project-documentation"),
+      ).toBe(true);
 
       const createProjectResult = await client.callTool({
         name: "create_project",
@@ -255,6 +378,44 @@ describe("MCP server", () => {
         },
       });
 
+      const createDocsDirectoryResult = await client.callTool({
+        name: "create_documentation_node",
+        arguments: {
+          projectSlug: createdProject.slug,
+          kind: "directory",
+          name: "specs",
+        },
+      });
+      const createdDocsDirectory = createDocsDirectoryResult.structuredContent as {
+        id: string;
+        name: string;
+      };
+
+      const createDocsPageResult = await client.callTool({
+        name: "create_documentation_node",
+        arguments: {
+          projectSlug: createdProject.slug,
+          kind: "page",
+          parentId: createdDocsDirectory.id,
+          name: "handoff",
+          content: "# Handoff\n\nCapture agent operating notes.",
+        },
+      });
+      const createdDocsPage = createDocsPageResult.structuredContent as {
+        id: string;
+        name: string;
+      };
+
+      await client.callTool({
+        name: "update_documentation_node",
+        arguments: {
+          projectSlug: createdProject.slug,
+          nodeId: createdDocsPage.id,
+          name: "agent-handoff",
+          content: "# Agent handoff\n\nKeep the product spec current while executing work.",
+        },
+      });
+
       const boardResult = await client.callTool({
         name: "get_project_board",
         arguments: { projectSlug: createdProject.slug },
@@ -280,6 +441,52 @@ describe("MCP server", () => {
         expect.objectContaining({ id: createdTask.id, status: "in_progress" }),
       ]);
 
+      const documentationResult = await client.callTool({
+        name: "get_project_documentation",
+        arguments: { projectSlug: createdProject.slug },
+      });
+      const documentation = documentationResult.structuredContent as {
+        nodes: Array<{
+          id: string;
+          name: string;
+          children: Array<{ id: string; name: string; content: string }>;
+        }>;
+      };
+
+      expect(documentation.nodes).toEqual([
+        expect.objectContaining({
+          id: createdDocsDirectory.id,
+          name: "specs",
+          children: [
+            expect.objectContaining({
+              id: createdDocsPage.id,
+              name: "agent-handoff.md",
+              content: "# Agent handoff\n\nKeep the product spec current while executing work.",
+            }),
+          ],
+        }),
+      ]);
+
+      const documentationResource = await client.readResource({
+        uri: `fabriqueta://projects/${createdProject.slug}/documentation`,
+      });
+      const documentationPayload = JSON.parse(documentationResource.contents[0]?.text ?? "{}") as {
+        nodes: Array<{ name: string }>;
+      };
+      expect(documentationPayload.nodes[0]?.name).toBe("specs");
+
+      const pageResource = await client.readResource({
+        uri: `fabriqueta://projects/${createdProject.slug}/documentation/nodes/${createdDocsPage.id}`,
+      });
+      const pagePayload = JSON.parse(pageResource.contents[0]?.text ?? "{}") as {
+        path: string;
+        content: string;
+      };
+      expect(pagePayload.path).toBe("specs/agent-handoff.md");
+      expect(pagePayload.content).toBe(
+        "# Agent handoff\n\nKeep the product spec current while executing work.",
+      );
+
       const promptResult = await client.getPrompt({
         name: "execute-active-sprint",
         arguments: { projectSlug: createdProject.slug },
@@ -292,6 +499,21 @@ describe("MCP server", () => {
       if (promptResult.messages[1]?.content.type === "resource") {
         expect(promptResult.messages[1].content.resource.uri).toBe(
           `fabriqueta://projects/${createdProject.slug}/sprint`,
+        );
+      }
+
+      const documentationPromptResult = await client.getPrompt({
+        name: "review-project-documentation",
+        arguments: { projectSlug: createdProject.slug },
+      });
+      expect(documentationPromptResult.messages.map((message) => message.content.type)).toEqual([
+        "text",
+        "resource",
+      ]);
+      expect(documentationPromptResult.messages[1]?.content.type).toBe("resource");
+      if (documentationPromptResult.messages[1]?.content.type === "resource") {
+        expect(documentationPromptResult.messages[1].content.resource.uri).toBe(
+          `fabriqueta://projects/${createdProject.slug}/documentation`,
         );
       }
     } finally {

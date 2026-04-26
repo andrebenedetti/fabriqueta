@@ -53,3 +53,23 @@ export type Board = {
   sprintTasks: SprintTask[];
   epics: Epic[];
 };
+
+export type DocumentationNodeKind = "directory" | "page";
+
+export type DocumentationNode = {
+  id: string;
+  parentId: string | null;
+  name: string;
+  kind: DocumentationNodeKind;
+  position: number;
+  content: string;
+  path: string;
+  createdAt: string;
+  updatedAt: string;
+  children: DocumentationNode[];
+};
+
+export type Documentation = {
+  project: ProjectDetails;
+  nodes: DocumentationNode[];
+};

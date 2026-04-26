@@ -1,16 +1,21 @@
 import {
   addTaskToActiveSprint,
   completeActiveSprint,
+  createDocumentationNode,
   createEpic,
   createProject,
   createTask,
+  deleteDocumentationNode,
   getProjectBoard,
+  getProjectDocumentation,
   listProjects,
   moveEpic,
   moveTask,
   removeTaskFromSprint,
   startSprint,
+  type DocumentationNodeKind,
   type TaskStatus,
+  updateDocumentationNode,
   updateEpic,
   updateTask,
 } from "./db";
@@ -19,14 +24,20 @@ type Direction = "up" | "down";
 
 type JsonBody = Record<string, unknown>;
 
+function corsHeaders() {
+  return {
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
+    "access-control-allow-headers": "content-type",
+  };
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "*",
-      "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
-      "access-control-allow-headers": "content-type",
+      ...corsHeaders(),
     },
   });
 }
@@ -34,11 +45,7 @@ function json(data: unknown, status = 200) {
 function empty(status = 204) {
   return new Response(null, {
     status,
-    headers: {
-      "access-control-allow-origin": "*",
-      "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
-      "access-control-allow-headers": "content-type",
-    },
+    headers: corsHeaders(),
   });
 }
 
@@ -64,6 +71,22 @@ function getStatus(value: unknown): TaskStatus | undefined {
   }
 
   throw new Error("Invalid task status");
+}
+
+function getDocumentationKind(value: unknown): DocumentationNodeKind {
+  if (value === "directory" || value === "page") {
+    return value;
+  }
+
+  throw new Error("Documentation kind must be 'directory' or 'page'");
+}
+
+function getParentId(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  return String(value);
 }
 
 function pathParts(pathname: string) {
@@ -102,36 +125,46 @@ export async function handleRequest(request: Request) {
       return json(getProjectBoard(parts[2]));
     }
 
-      if (
-        request.method === "POST" &&
-        parts[0] === "api" &&
-        parts[1] === "projects" &&
-        parts[3] === "sprints" &&
-        parts.length === 4
-      ) {
-        const body = await parseBody<{ name?: unknown }>(request);
-        return json({ sprint: startSprint(parts[2], { name: String(body.name ?? "") }) }, 201);
-      }
+    if (
+      request.method === "GET" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "documentation" &&
+      parts.length === 4
+    ) {
+      return json(getProjectDocumentation(parts[2]));
+    }
 
-      if (
-        request.method === "POST" &&
-        parts[0] === "api" &&
-        parts[1] === "projects" &&
-        parts[3] === "sprints" &&
-        parts[4] === "complete" &&
-        parts.length === 5
-      ) {
-        completeActiveSprint(parts[2]);
-        return json({ ok: true });
-      }
+    if (
+      request.method === "POST" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "sprints" &&
+      parts.length === 4
+    ) {
+      const body = await parseBody<{ name?: unknown }>(request);
+      return json({ sprint: startSprint(parts[2], { name: String(body.name ?? "") }) }, 201);
+    }
 
-      if (
-        request.method === "POST" &&
-        parts[0] === "api" &&
-        parts[1] === "projects" &&
-        parts[3] === "epics" &&
-        parts.length === 4
-      ) {
+    if (
+      request.method === "POST" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "sprints" &&
+      parts[4] === "complete" &&
+      parts.length === 5
+    ) {
+      completeActiveSprint(parts[2]);
+      return json({ ok: true });
+    }
+
+    if (
+      request.method === "POST" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "epics" &&
+      parts.length === 4
+    ) {
       const body = await parseBody<{ title?: unknown; description?: unknown }>(request);
       return json(
         {
@@ -172,33 +205,13 @@ export async function handleRequest(request: Request) {
       return json({ epic: moveEpic(parts[2], parts[4], getDirection(body.direction)) });
     }
 
-      if (
-        request.method === "POST" &&
-        parts[0] === "api" &&
-        parts[1] === "projects" &&
-        parts[3] === "tasks" &&
-        parts[5] === "sprint" &&
-        parts.length === 6
-      ) {
-        const body = await parseBody<{ action?: unknown }>(request);
-        if (body.action === "add") {
-          return json({ task: addTaskToActiveSprint(parts[2], parts[4]) });
-        }
-
-        if (body.action === "remove") {
-          return json({ task: removeTaskFromSprint(parts[2], parts[4]) });
-        }
-
-        throw new Error("Sprint action must be 'add' or 'remove'");
-      }
-
-      if (
-        request.method === "POST" &&
-        parts[0] === "api" &&
-        parts[1] === "projects" &&
-        parts[3] === "epics" &&
-        parts[5] === "tasks" &&
-        parts.length === 6
+    if (
+      request.method === "POST" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "epics" &&
+      parts[5] === "tasks" &&
+      parts.length === 6
     ) {
       const body = await parseBody<{ title?: unknown; description?: unknown }>(request);
       return json(
@@ -210,6 +223,27 @@ export async function handleRequest(request: Request) {
         },
         201,
       );
+    }
+
+    if (
+      request.method === "POST" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "tasks" &&
+      parts[5] === "sprint" &&
+      parts.length === 6
+    ) {
+      const body = await parseBody<{ action?: unknown }>(request);
+
+      if (body.action === "add") {
+        return json({ task: addTaskToActiveSprint(parts[2], parts[4]) });
+      }
+
+      if (body.action === "remove") {
+        return json({ task: removeTaskFromSprint(parts[2], parts[4]) });
+      }
+
+      throw new Error("Sprint action must be 'add' or 'remove'");
     }
 
     if (
@@ -242,6 +276,63 @@ export async function handleRequest(request: Request) {
     ) {
       const body = await parseBody<{ direction?: unknown }>(request);
       return json({ task: moveTask(parts[2], parts[4], getDirection(body.direction)) });
+    }
+
+    if (
+      request.method === "POST" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "documentation" &&
+      parts[4] === "nodes" &&
+      parts.length === 5
+    ) {
+      const body = await parseBody<{
+        kind?: unknown;
+        parentId?: unknown;
+        name?: unknown;
+        content?: unknown;
+      }>(request);
+
+      return json(
+        {
+          node: createDocumentationNode(parts[2], {
+            kind: getDocumentationKind(body.kind),
+            parentId: getParentId(body.parentId),
+            name: String(body.name ?? ""),
+            content: body.content === undefined ? undefined : String(body.content),
+          }),
+        },
+        201,
+      );
+    }
+
+    if (
+      request.method === "PATCH" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "documentation" &&
+      parts[4] === "nodes" &&
+      parts.length === 6
+    ) {
+      const body = await parseBody<{ name?: unknown; content?: unknown }>(request);
+
+      return json({
+        node: updateDocumentationNode(parts[2], parts[5], {
+          name: body.name === undefined ? undefined : String(body.name),
+          content: body.content === undefined ? undefined : String(body.content),
+        }),
+      });
+    }
+
+    if (
+      request.method === "DELETE" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "documentation" &&
+      parts[4] === "nodes" &&
+      parts.length === 6
+    ) {
+      return json({ nodeId: deleteDocumentationNode(parts[2], parts[5]) });
     }
 
     return json({ error: "Not found" }, 404);

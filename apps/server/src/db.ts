@@ -52,6 +52,29 @@ export type SprintTaskRow = TaskRow & {
   epicTitle: string;
 };
 
+export type DocumentationNodeKind = "directory" | "page";
+
+export type DocumentationNodeRow = {
+  id: string;
+  parentId: string | null;
+  name: string;
+  kind: DocumentationNodeKind;
+  position: number;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DocumentationNode = DocumentationNodeRow & {
+  path: string;
+  children: DocumentationNode[];
+};
+
+export type ProjectDocumentation = {
+  project: ProjectDetails;
+  nodes: DocumentationNode[];
+};
+
 const projectsDirectory = Bun.env.FABRIQUETA_PROJECTS_DIR
   ? resolve(Bun.env.FABRIQUETA_PROJECTS_DIR)
   : resolve(import.meta.dir, "../../../data/projects");
@@ -104,6 +127,25 @@ function initializeProjectSchema(db: Database) {
       completed_at TEXT,
       CHECK (status IN ('active', 'completed'))
     );
+
+    CREATE TABLE IF NOT EXISTS documentation_nodes (
+      id TEXT PRIMARY KEY,
+      parent_id TEXT,
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      position INTEGER NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (parent_id) REFERENCES documentation_nodes(id) ON DELETE CASCADE,
+      CHECK (kind IN ('directory', 'page'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_documentation_parent_position
+    ON documentation_nodes(parent_id, position);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_documentation_sibling_name
+    ON documentation_nodes(COALESCE(parent_id, ''), name);
   `);
 
   const sprintIdColumn = db
@@ -135,6 +177,31 @@ function assertValidSlug(slug: string) {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
     throw new Error("Invalid project slug");
   }
+}
+
+function assertValidDocumentationName(name: string) {
+  if (!name.trim()) {
+    throw new Error("Documentation name is required");
+  }
+
+  if (name === "." || name === "..") {
+    throw new Error("Documentation name is invalid");
+  }
+
+  if (/[\\/]/.test(name)) {
+    throw new Error("Documentation names cannot contain slashes");
+  }
+}
+
+function normalizeDocumentationName(kind: DocumentationNodeKind, name: string) {
+  const trimmedName = name.trim();
+  assertValidDocumentationName(trimmedName);
+
+  if (kind === "page" && !trimmedName.toLowerCase().endsWith(".md")) {
+    return `${trimmedName}.md`;
+  }
+
+  return trimmedName;
 }
 
 function openProjectDb(slug: string) {
@@ -278,6 +345,128 @@ function requireTask(db: Database, taskId: string) {
   }
 
   return task;
+}
+
+function requireDocumentationNode(db: Database, nodeId: string) {
+  const node = db
+    .query<DocumentationNodeRow, [string]>(`
+      SELECT
+        id,
+        parent_id AS parentId,
+        name,
+        kind,
+        position,
+        content,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+      FROM documentation_nodes
+      WHERE id = ?
+    `)
+    .get(nodeId);
+
+  if (!node) {
+    throw new Error("Documentation node not found");
+  }
+
+  return node;
+}
+
+function requireDocumentationDirectory(db: Database, parentId: string | null) {
+  if (parentId === null) {
+    return null;
+  }
+
+  const parent = requireDocumentationNode(db, parentId);
+  if (parent.kind !== "directory") {
+    throw new Error("Documentation pages cannot contain child nodes");
+  }
+
+  return parent;
+}
+
+function siblingNameExists(
+  db: Database,
+  parentId: string | null,
+  name: string,
+  excludedNodeId?: string,
+) {
+  const match = excludedNodeId
+    ? db
+        .query<{ id: string }, [string | null, string, string]>(`
+          SELECT id
+          FROM documentation_nodes
+          WHERE COALESCE(parent_id, '') = COALESCE(?, '')
+            AND name = ?
+            AND id != ?
+          LIMIT 1
+        `)
+        .get(parentId, name, excludedNodeId)
+    : db
+        .query<{ id: string }, [string | null, string]>(`
+          SELECT id
+          FROM documentation_nodes
+          WHERE COALESCE(parent_id, '') = COALESCE(?, '')
+            AND name = ?
+          LIMIT 1
+        `)
+        .get(parentId, name);
+
+  return Boolean(match);
+}
+
+function nextDocumentationPosition(db: Database, parentId: string | null) {
+  return (
+    db
+      .query<{ value: number | null }, [string | null]>(`
+        SELECT MAX(position) AS value
+        FROM documentation_nodes
+        WHERE COALESCE(parent_id, '') = COALESCE(?, '')
+      `)
+      .get(parentId)?.value ?? -1
+  ) + 1;
+}
+
+function buildDocumentationTree(
+  rows: DocumentationNodeRow[],
+  parentId: string | null = null,
+  parentPath = "",
+): DocumentationNode[] {
+  return rows
+    .filter((row) => row.parentId === parentId)
+    .map((row) => {
+      const path = parentPath ? `${parentPath}/${row.name}` : row.name;
+      const children = row.kind === "directory" ? buildDocumentationTree(rows, row.id, path) : [];
+
+      return {
+        ...row,
+        path,
+        children,
+      };
+    });
+}
+
+function readProjectDocumentation(db: Database): ProjectDocumentation {
+  const project = readProjectDetails(db);
+  const rows = db
+    .query<DocumentationNodeRow, []>(`
+      SELECT
+        id,
+        parent_id AS parentId,
+        name,
+        kind,
+        position,
+        content,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+      FROM documentation_nodes
+      ORDER BY position ASC, created_at ASC
+    `)
+    .all();
+
+  return {
+    project,
+    nodes: buildDocumentationTree(rows),
+  };
 }
 
 function getActiveSprint(db: Database) {
@@ -566,6 +755,80 @@ export function moveTask(projectSlug: string, taskId: string, direction: "up" | 
 
     return move();
   });
+}
+
+export function createDocumentationNode(
+  projectSlug: string,
+  input: {
+    kind: DocumentationNodeKind;
+    parentId?: string | null;
+    name: string;
+    content?: string;
+  },
+) {
+  return withProjectDb(projectSlug, (db) => {
+    const parentId = input.parentId ?? null;
+    requireDocumentationDirectory(db, parentId);
+
+    const name = normalizeDocumentationName(input.kind, input.name);
+    if (siblingNameExists(db, parentId, name)) {
+      throw new Error("A documentation entry with that name already exists here");
+    }
+
+    const nodeId = crypto.randomUUID();
+    const position = nextDocumentationPosition(db, parentId);
+    const content = input.kind === "page" ? input.content ?? "" : "";
+
+    db.query(`
+      INSERT INTO documentation_nodes (id, parent_id, name, kind, position, content)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(nodeId, parentId, name, input.kind, position, content);
+
+    return requireDocumentationNode(db, nodeId);
+  });
+}
+
+export function updateDocumentationNode(
+  projectSlug: string,
+  nodeId: string,
+  input: {
+    name?: string;
+    content?: string;
+  },
+) {
+  return withProjectDb(projectSlug, (db) => {
+    const current = requireDocumentationNode(db, nodeId);
+    const name =
+      input.name === undefined
+        ? current.name
+        : normalizeDocumentationName(current.kind, input.name);
+
+    if (siblingNameExists(db, current.parentId, name, current.id)) {
+      throw new Error("A documentation entry with that name already exists here");
+    }
+
+    const content = current.kind === "page" ? input.content ?? current.content : "";
+
+    db.query(`
+      UPDATE documentation_nodes
+      SET name = ?, content = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(name, content, nodeId);
+
+    return requireDocumentationNode(db, nodeId);
+  });
+}
+
+export function deleteDocumentationNode(projectSlug: string, nodeId: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const node = requireDocumentationNode(db, nodeId);
+    db.query(`DELETE FROM documentation_nodes WHERE id = ?`).run(nodeId);
+    return node.id;
+  });
+}
+
+export function getProjectDocumentation(projectSlug: string) {
+  return withProjectDb(projectSlug, (db) => readProjectDocumentation(db));
 }
 
 export function getProjectBoard(projectSlug: string) {

@@ -27,7 +27,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -35,13 +36,18 @@ button {
   cursor: pointer;
 }
 
-input {
+input,
+textarea {
   width: 100%;
   padding: 0.85rem 1rem;
   border-radius: 0.95rem;
   border: 1px solid rgba(73, 52, 25, 0.14);
   background: rgba(255, 255, 255, 0.82);
   color: var(--text);
+}
+
+textarea {
+  resize: vertical;
 }
 
 main {
@@ -461,16 +467,126 @@ main {
   gap: 0.75rem;
 }
 
+.documentation-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.documentation-sidebar,
+.documentation-editor {
+  padding: 1.35rem;
+}
+
+.documentation-sidebar,
+.documentation-editor,
+.doc-editor-form,
+.doc-create-stack,
+.doc-tree {
+  display: flex;
+  flex-direction: column;
+}
+
+.documentation-sidebar,
+.doc-editor-form,
+.doc-tree,
+.doc-create-stack {
+  gap: 1rem;
+}
+
+.doc-tree {
+  min-height: 260px;
+}
+
+.doc-tree-node {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 0.95rem;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.doc-tree-node.active {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(73, 52, 25, 0.1);
+}
+
+.doc-tree-icon {
+  display: inline-flex;
+  min-width: 2.3rem;
+  justify-content: center;
+  padding: 0.18rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(158, 79, 32, 0.12);
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.doc-inline-form {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.doc-textarea {
+  min-height: 340px;
+  font-family: "SFMono-Regular", "Consolas", monospace;
+}
+
+.doc-editor-form {
+  min-height: 100%;
+}
+
+.doc-editor-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.doc-directory-panel {
+  padding: 1rem;
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid rgba(73, 52, 25, 0.08);
+}
+
+.doc-directory-panel p {
+  margin: 0;
+}
+
+.doc-empty-state,
+.compact-empty-state {
+  min-height: 100%;
+}
+
+.danger-button {
+  color: #8d2d1a;
+  border-color: rgba(141, 45, 26, 0.22);
+}
+
 @media (max-width: 900px) {
   .masthead,
   .create-form,
   .project-card,
   .sprint-header,
-  .sprint-task-row {
+  .sprint-task-row,
+  .doc-inline-form,
+  .doc-editor-footer {
     flex-direction: column;
   }
 
   .board-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .documentation-layout {
     grid-template-columns: 1fr;
   }
 

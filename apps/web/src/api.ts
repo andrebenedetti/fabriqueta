@@ -1,4 +1,4 @@
-import type { Board, Project } from "./types";
+import type { Board, Documentation, Project } from "./types";
 
 async function request<T>(path: string, init?: RequestInit) {
   const response = await fetch(path, {
@@ -30,6 +30,10 @@ export async function createProject(name: string) {
 
 export async function fetchBoard(projectSlug: string) {
   return request<Board>(`/api/projects/${projectSlug}/board`);
+}
+
+export async function fetchDocumentation(projectSlug: string) {
+  return request<Documentation>(`/api/projects/${projectSlug}/documentation`);
 }
 
 export async function createEpic(projectSlug: string, title: string, description = "") {
@@ -101,5 +105,40 @@ export async function removeTaskFromSprint(projectSlug: string, taskId: string) 
   return request(`/api/projects/${projectSlug}/tasks/${taskId}/sprint`, {
     method: "POST",
     body: JSON.stringify({ action: "remove" }),
+  });
+}
+
+export async function createDocumentationNode(
+  projectSlug: string,
+  input: {
+    kind: "directory" | "page";
+    parentId?: string | null;
+    name: string;
+    content?: string;
+  },
+) {
+  return request(`/api/projects/${projectSlug}/documentation/nodes`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateDocumentationNode(
+  projectSlug: string,
+  nodeId: string,
+  input: {
+    name?: string;
+    content?: string;
+  },
+) {
+  return request(`/api/projects/${projectSlug}/documentation/nodes/${nodeId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteDocumentationNode(projectSlug: string, nodeId: string) {
+  return request(`/api/projects/${projectSlug}/documentation/nodes/${nodeId}`, {
+    method: "DELETE",
   });
 }

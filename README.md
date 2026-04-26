@@ -7,6 +7,7 @@ First working slice of a local product-work operating system built with Bun, Typ
 - Create projects, each stored in its own SQLite file
 - Create epics inside a project
 - Create tasks inside each epic
+- Manage markdown documentation pages and directories inside each project database
 - Reorder epics and tasks with move up/down controls
 - Expose the project system to AI agents through a local MCP server
 
@@ -47,15 +48,18 @@ The project includes a local stdio MCP server at `apps/mcp-server/src/index.ts`.
 
 It exposes:
 
-- Tools for project operations such as listing projects, reading the board, creating epics/tasks, starting and completing sprints, assigning tasks to sprints, updating task status, and reordering work.
+- Tools for project operations such as listing projects, reading the board, creating epics/tasks, starting and completing sprints, assigning tasks to sprints, updating task status, reordering work, and managing documentation nodes.
 - Resources for structured context such as:
   - `fabriqueta://projects`
   - `fabriqueta://projects/{projectSlug}/board`
   - `fabriqueta://projects/{projectSlug}/backlog`
   - `fabriqueta://projects/{projectSlug}/sprint`
+  - `fabriqueta://projects/{projectSlug}/documentation`
+  - `fabriqueta://projects/{projectSlug}/documentation/nodes/{nodeId}`
 - Prompts for common agent workflows:
   - `plan-next-sprint`
   - `execute-active-sprint`
+  - `review-project-documentation`
 
 For local agent hosts that support MCP over stdio, point them at:
 
