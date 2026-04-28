@@ -198,3 +198,23 @@ export async function deleteDocumentationNode(projectSlug: string, nodeId: strin
     method: "DELETE",
   });
 }
+
+export type ActivityEntry = {
+  id: string;
+  actor: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  details: string;
+  createdAt: string;
+};
+
+export async function fetchActivityLog(projectSlug: string, limit?: number, offset?: number) {
+  const params = new URLSearchParams();
+  if (limit !== undefined) params.set("limit", String(limit));
+  if (offset !== undefined) params.set("offset", String(offset));
+  const query = params.toString();
+  return request<{ activities: ActivityEntry[] }>(
+    `/api/projects/${projectSlug}/activity${query ? `?${query}` : ""}`,
+  );
+}

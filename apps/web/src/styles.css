@@ -1069,6 +1069,63 @@ kbd {
     monospace;
 }
 
+.doc-preview {
+  min-height: 420px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+  overflow-y: auto;
+}
+
+.md-preview-content h2,
+.md-preview-content h3,
+.md-preview-content h4 {
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.md-preview-content p {
+  margin: 0 0 6px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.md-preview-content li {
+  margin: 0 0 4px 16px;
+  color: var(--text-secondary);
+}
+
+.md-preview-content pre {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.md-preview-content code {
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.875em;
+  color: var(--brand);
+}
+
+.md-preview-content .md-code-block code {
+  color: var(--text);
+}
+
+.md-preview-content .md-list-item {
+  list-style: disc;
+  display: list-item;
+}
+
+.md-preview-content br {
+  display: block;
+  content: "";
+  margin: 4px 0;
+}
+
 .overlay-backdrop {
   position: fixed;
   inset: 0;

@@ -77,6 +77,16 @@ export type DocumentationNode = {
   children: DocumentationNode[];
 };
 
+export type ActivityEntry = {
+  id: string;
+  actor: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  details: string;
+  createdAt: string;
+};
+
 export type Documentation = {
   project: ProjectDetails;
   nodes: DocumentationNode[];

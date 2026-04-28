@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { Database } from "bun:sqlite";
 
 export type ProjectSummary = {
@@ -71,6 +71,16 @@ export type DocumentationNodeRow = {
   content: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ActivityLogRow = {
+  id: string;
+  actor: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  details: string;
+  createdAt: string;
 };
 
 export type DocumentationNode = DocumentationNodeRow & {
@@ -149,6 +159,22 @@ function initializeProjectSchema(db: Database) {
       FOREIGN KEY (parent_id) REFERENCES documentation_nodes(id) ON DELETE CASCADE,
       CHECK (kind IN ('directory', 'page'))
     );
+
+    CREATE TABLE IF NOT EXISTS activity_log (
+      id TEXT PRIMARY KEY,
+      actor TEXT NOT NULL,
+      action TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      details TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_activity_log_created_at
+    ON activity_log(created_at DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_activity_log_entity
+    ON activity_log(entity_type, entity_id);
 
     CREATE INDEX IF NOT EXISTS idx_documentation_parent_position
     ON documentation_nodes(parent_id, position);
@@ -853,6 +879,68 @@ export function releaseTask(projectSlug: string, taskId: string) {
   });
 }
 
+export function logActivity(
+  projectSlug: string,
+  input: {
+    actor: string;
+    action: string;
+    entityType: string;
+    entityId: string;
+    details?: string;
+  },
+) {
+  return withProjectDb(projectSlug, (db) => {
+    const id = crypto.randomUUID();
+    const details = input.details?.trim() ?? "";
+
+    db.query(`
+      INSERT INTO activity_log (id, actor, action, entity_type, entity_id, details)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(id, input.actor, input.action, input.entityType, input.entityId, details);
+
+    return db
+      .query<ActivityLogRow, [string]>(`
+        SELECT
+          id,
+          actor,
+          action,
+          entity_type AS entityType,
+          entity_id AS entityId,
+          details,
+          created_at AS createdAt
+        FROM activity_log
+        WHERE id = ?
+      `)
+      .get(id)!;
+  });
+}
+
+export function getActivityLog(
+  projectSlug: string,
+  options?: { limit?: number; offset?: number },
+) {
+  return withProjectDb(projectSlug, (db) => {
+    const limit = options?.limit ?? 50;
+    const offset = options?.offset ?? 0;
+
+    return db
+      .query<ActivityLogRow, [number, number]>(`
+        SELECT
+          id,
+          actor,
+          action,
+          entity_type AS entityType,
+          entity_id AS entityId,
+          details,
+          created_at AS createdAt
+        FROM activity_log
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+      `)
+      .all(limit, offset);
+  });
+}
+
 export function moveEpic(projectSlug: string, epicId: string, direction: "up" | "down") {
   return withProjectDb(projectSlug, (db) => {
     const move = db.transaction(() => {
@@ -991,6 +1079,420 @@ export function deleteDocumentationNode(projectSlug: string, nodeId: string) {
 
 export function getProjectDocumentation(projectSlug: string) {
   return withProjectDb(projectSlug, (db) => readProjectDocumentation(db));
+}
+
+export function checkProjectHealth(projectSlug: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const warnings: string[] = [];
+    const now = Date.now();
+    const fourHoursMs = 4 * 60 * 60 * 1000;
+
+    const activeSprint = getActiveSprint(db);
+
+    if (!activeSprint) {
+      warnings.push("No active sprint — backlog tasks cannot be executed without a sprint.");
+    }
+
+    const staleInProgressTasks = db
+      .query<TaskRow, []>(`
+        SELECT
+          id,
+          epic_id AS epicId,
+          title,
+          description,
+          position,
+          status,
+          sprint_id AS sprintId,
+          claimed_by AS claimedBy,
+          created_at AS createdAt
+        FROM tasks
+        WHERE status = 'in_progress'
+      `)
+      .all()
+      .filter((task) => {
+        if (!task.claimedBy) return false;
+        const secondsSinceCreation =
+          (now - new Date(task.createdAt.replace(" ", "T")).getTime()) / 1000;
+        return secondsSinceCreation > fourHoursMs;
+      });
+
+    for (const task of staleInProgressTasks) {
+      warnings.push(
+        `Task "${task.title}" has been 'in_progress' for >4 hours (claimed by ${task.claimedBy}). Consider releasing or checking progress.`,
+      );
+    }
+
+    const unclaimedInProgress = db
+      .query<TaskRow, []>(`
+        SELECT
+          id,
+          epic_id AS epicId,
+          title,
+          description,
+          position,
+          status,
+          sprint_id AS sprintId,
+          claimed_by AS claimedBy,
+          created_at AS createdAt
+        FROM tasks
+        WHERE status = 'in_progress' AND claimed_by IS NULL
+      `)
+      .all();
+
+    for (const task of unclaimedInProgress) {
+      warnings.push(
+        `Task "${task.title}" is 'in_progress' but not claimed by anyone. Claim it or move it back to 'todo'.`,
+      );
+    }
+
+    const docCount = db
+      .query<{ count: number }, []>("SELECT COUNT(*) AS count FROM documentation_nodes")
+      .get();
+
+    if (docCount && docCount.count === 0) {
+      warnings.push("No documentation pages exist — consider adding product specs.");
+    }
+
+    const taskCount = db
+      .query<{ count: number }, []>("SELECT COUNT(*) AS count FROM tasks")
+      .get();
+
+    if (taskCount && taskCount.count === 0) {
+      warnings.push("No tasks exist — add epics and tasks to the backlog.");
+    }
+
+    const completedSprints = listCompletedSprints(db);
+    const completedWithoutRetro = completedSprints.filter(
+      (sprint) => !sprint.retrospectiveNotes.trim(),
+    );
+
+    for (const sprint of completedWithoutRetro) {
+      warnings.push(
+        `Sprint "${sprint.name}" completed with no retrospective notes — consider adding context.`,
+      );
+    }
+
+    return {
+      projectSlug,
+      health: warnings.length === 0 ? "good" : "needs_attention",
+      warnings,
+      checkedAt: new Date().toISOString(),
+    };
+  });
+}
+
+export function findDocumentationNodeByPath(projectSlug: string, searchPath: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const trimmedPath = searchPath.trim().replace(/\/+$/, "");
+    if (!trimmedPath) {
+      return null;
+    }
+
+    const parts = trimmedPath.split("/");
+
+    const rows = db
+      .query<DocumentationNodeRow & { path: string }, []>(`
+        WITH RECURSIVE tree AS (
+          SELECT id, parent_id, name, kind, position, content, created_at, updated_at, name AS path
+          FROM documentation_nodes
+          WHERE parent_id IS NULL
+          UNION ALL
+          SELECT dn.id, dn.parent_id, dn.name, dn.kind, dn.position, dn.content, dn.created_at, dn.updated_at, tree.path || '/' || dn.name AS path
+          FROM documentation_nodes dn
+          INNER JOIN tree ON tree.id = dn.parent_id
+        )
+        SELECT
+          id,
+          parent_id AS parentId,
+          name,
+          kind,
+          position,
+          content,
+          created_at AS createdAt,
+          updated_at AS updatedAt,
+          path
+        FROM tree
+      `)
+      .all();
+
+    return rows.find((row) => row.path === trimmedPath) ?? null;
+  });
+}
+
+export function searchDocumentation(
+  projectSlug: string,
+  query: string,
+  options?: { limit?: number },
+) {
+  return withProjectDb(projectSlug, (db) => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      return [];
+    }
+
+    const limit = options?.limit ?? 20;
+    const searchPattern = `%${trimmedQuery}%`;
+
+    const rows = db
+      .query<DocumentationNodeRow & { path: string }, [string, string]>(`
+        WITH RECURSIVE tree AS (
+          SELECT id, parent_id, name, kind, position, content, created_at, updated_at, name AS path
+          FROM documentation_nodes
+          WHERE parent_id IS NULL
+          UNION ALL
+          SELECT dn.id, dn.parent_id, dn.name, dn.kind, dn.position, dn.content, dn.created_at, dn.updated_at, tree.path || '/' || dn.name AS path
+          FROM documentation_nodes dn
+          INNER JOIN tree ON tree.id = dn.parent_id
+        )
+        SELECT
+          id,
+          parent_id AS parentId,
+          name,
+          kind,
+          position,
+          content,
+          created_at AS createdAt,
+          updated_at AS updatedAt,
+          path
+        FROM tree
+        WHERE name LIKE ? OR content LIKE ?
+      `)
+      .all(searchPattern, searchPattern);
+
+    return rows
+      .sort((left, right) => {
+        const leftNameMatches = left.name.toLowerCase().includes(trimmedQuery.toLowerCase());
+        const rightNameMatches = right.name.toLowerCase().includes(trimmedQuery.toLowerCase());
+        if (leftNameMatches && !rightNameMatches) return -1;
+        if (!leftNameMatches && rightNameMatches) return 1;
+        return left.position - right.position;
+      })
+      .slice(0, limit);
+  });
+}
+
+export type SyncResult = {
+  created: number;
+  updated: number;
+  skipped: number;
+  deleted: number;
+};
+
+function exportNodeToFileSystem(node: DocumentationNode, basePath: string) {
+  const nodePath = join(basePath, node.name);
+
+  if (node.kind === "directory") {
+    mkdirSync(nodePath, { recursive: true });
+
+    for (const child of node.children) {
+      exportNodeToFileSystem(child, nodePath);
+    }
+  } else {
+    writeFileSync(nodePath, node.content, "utf-8");
+  }
+}
+
+function getNodeMap(
+  nodes: DocumentationNode[],
+  parentPath = "",
+): Map<string, DocumentationNode> {
+  const map = new Map<string, DocumentationNode>();
+  for (const node of nodes) {
+    const path = parentPath ? `${parentPath}/${node.name}` : node.name;
+    map.set(path, node);
+    if (node.kind === "directory") {
+      const childMap = getNodeMap(node.children, path);
+      for (const [key, value] of childMap) {
+        map.set(key, value);
+      }
+    }
+  }
+  return map;
+}
+
+export function exportDocumentationToFilesystem(
+  projectSlug: string,
+  targetDir: string,
+) {
+  const documentation = getProjectDocumentation(projectSlug);
+  mkdirSync(targetDir, { recursive: true });
+
+  let count = 0;
+
+  for (const node of documentation.nodes) {
+    exportNodeToFileSystem(node, targetDir);
+
+    function countAll(node: DocumentationNode): number {
+      if (node.kind === "page") return 1;
+      return node.children.reduce((s, c) => s + countAll(c), 0);
+    }
+    count += countAll(node);
+  }
+
+  return { path: targetDir, count };
+}
+
+export function importDocumentationFromFilesystem(
+  projectSlug: string,
+  sourceDir: string,
+): SyncResult {
+  const result: SyncResult = { created: 0, updated: 0, skipped: 0, deleted: 0 };
+
+  if (!existsSync(sourceDir)) {
+    throw new Error(`Directory not found: ${sourceDir}`);
+  }
+
+  const existing = getProjectDocumentation(projectSlug);
+  const existingMap = getNodeMap(existing.nodes);
+
+  const filesToProcess: string[] = [];
+
+  function collectFiles(dir: string, relativePath: string) {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        collectFiles(fullPath, relPath);
+        filesToProcess.push(relPath + "/");
+      } else if (entry.name.endsWith(".md")) {
+        filesToProcess.push(relPath);
+      }
+    }
+  }
+
+  collectFiles(sourceDir, "");
+
+  const processedPaths = new Set<string>();
+
+  for (const filePath of filesToProcess) {
+    const fullPath = join(sourceDir, filePath);
+    const isDir = filePath.endsWith("/");
+    const nodeName = filePath.split("/").pop() ?? filePath;
+    const parentPath = filePath.split("/").slice(0, -1).join("/");
+    const normalizedPath = isDir ? filePath.slice(0, -1) : filePath;
+
+    processedPaths.add(normalizedPath);
+
+    const existingNode = existingMap.get(normalizedPath);
+
+    if (isDir) {
+      if (!existingNode) {
+        const parentId = existingMap.get(parentPath)?.id ?? null;
+        const created = createDocumentationNode(projectSlug, {
+          kind: "directory",
+          parentId,
+          name: nodeName,
+        });
+        existingMap.set(normalizedPath, {
+          ...created,
+          path: normalizedPath,
+          children: [],
+        });
+        result.created++;
+      } else {
+        result.skipped++;
+      }
+    } else {
+      const content = readFileSync(fullPath, "utf-8");
+
+      if (!existingNode) {
+        const parentId = existingMap.get(parentPath)?.id ?? null;
+        const created = createDocumentationNode(projectSlug, {
+          kind: "page",
+          parentId,
+          name: nodeName,
+          content,
+        });
+        existingMap.set(normalizedPath, {
+          ...created,
+          path: normalizedPath,
+          children: [],
+        });
+        result.created++;
+      } else {
+        const fsMtime = statSync(fullPath).mtime.toISOString();
+        const dbUpdated = existingNode.updatedAt;
+
+        if (fsMtime > dbUpdated) {
+          updateDocumentationNode(projectSlug, existingNode.id, { content });
+          result.updated++;
+        } else {
+          result.skipped++;
+        }
+      }
+    }
+  }
+
+  for (const [path, node] of existingMap) {
+    if (!processedPaths.has(path)) {
+      deleteDocumentationNode(projectSlug, node.id);
+      result.deleted++;
+    }
+  }
+
+  return result;
+}
+
+export function getCompactProjectSummary(projectSlug: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const project = readProjectDetails(db);
+    const activeSprint = getActiveSprint(db) ?? null;
+
+    const epicSummary = db
+      .query<{ title: string; totalTasks: number; doneTasks: number }, []>(`
+        SELECT
+          epics.title,
+          COUNT(tasks.id) AS totalTasks,
+          COALESCE(SUM(CASE WHEN tasks.status = 'done' THEN 1 ELSE 0 END), 0) AS doneTasks
+        FROM epics
+        LEFT JOIN tasks ON tasks.epic_id = epics.id
+        GROUP BY epics.id
+        ORDER BY epics.position ASC
+      `)
+      .all();
+
+    const sprintTasks = activeSprint
+      ? db
+          .query<
+            { title: string; status: string; epicTitle: string; claimedBy: string | null },
+            [string]
+          >(`
+            SELECT
+              tasks.title,
+              tasks.status,
+              epics.title AS epicTitle,
+              tasks.claimed_by AS claimedBy
+            FROM tasks
+            INNER JOIN epics ON epics.id = tasks.epic_id
+            WHERE tasks.sprint_id = ?
+            ORDER BY epics.position ASC, tasks.position ASC
+          `)
+          .all(activeSprint.id)
+      : [];
+
+    const totalTasks = epicSummary.reduce((sum, epic) => sum + epic.totalTasks, 0);
+    const doneTasks = epicSummary.reduce((sum, epic) => sum + epic.doneTasks, 0);
+
+    return {
+      project: { name: project.name, slug: project.slug },
+      activeSprint: activeSprint
+        ? {
+            name: activeSprint.name,
+            status: activeSprint.status,
+            totalTasks: sprintTasks.length,
+            doneTasks: sprintTasks.filter((t) => t.status === "done").length,
+          }
+        : null,
+      backlog: {
+        epicCount: epicSummary.length,
+        totalTasks,
+        doneTasks,
+        todoTasks: totalTasks - doneTasks,
+      },
+    };
+  });
 }
 
 export function getProjectBoard(projectSlug: string) {

@@ -9,13 +9,16 @@ import {
   deleteEpic,
   deleteDocumentationNode,
   deleteTask,
+  getActivityLog,
   getProjectBoard,
   getProjectDocumentation,
   listProjects,
+  logActivity,
   moveEpic,
   moveTask,
   releaseTask,
   removeTaskFromSprint,
+  searchDocumentation,
   startSprint,
   type DocumentationNodeKind,
   type TaskStatus,
@@ -137,7 +140,31 @@ export async function handleRequest(request: Request) {
       parts[3] === "documentation" &&
       parts.length === 4
     ) {
+      const query = url.searchParams.get("q");
+      if (query) {
+        const limit = url.searchParams.get("limit")
+          ? Number(url.searchParams.get("limit"))
+          : undefined;
+        return json({ query, results: searchDocumentation(parts[2], query, { limit }) });
+      }
+
       return json(getProjectDocumentation(parts[2]));
+    }
+
+    if (
+      request.method === "GET" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "activity" &&
+      parts.length === 4
+    ) {
+      const limit = url.searchParams.get("limit")
+        ? Number(url.searchParams.get("limit"))
+        : undefined;
+      const offset = url.searchParams.get("offset")
+        ? Number(url.searchParams.get("offset"))
+        : undefined;
+      return json({ activities: getActivityLog(parts[2], { limit, offset }) });
     }
 
     if (

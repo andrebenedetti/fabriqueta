@@ -10,6 +10,7 @@
     "dev:web": "bun run --cwd apps/web dev",
     "dev:mcp": "bun run --cwd apps/mcp-server dev",
     "deploy-skills": "bun run scripts/deploy-skills.ts",
+    "doc-sync": "bun run scripts/doc-sync.ts",
     "test": "bun test",
     "typecheck": "bun run --cwd apps/server typecheck && bun run --cwd apps/web typecheck && bun run --cwd apps/mcp-server typecheck",
     "build": "bun run --cwd apps/web build"

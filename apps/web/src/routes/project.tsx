@@ -17,6 +17,7 @@ import {
   deleteDocumentationNode,
   deleteEpic,
   deleteTask,
+  fetchActivityLog,
   fetchBoard,
   fetchDocumentation,
   moveTask,
@@ -34,6 +35,7 @@ import { Icon } from "../components/icons";
 import { TaskDetailsDialog } from "../components/TaskDetailsDialog";
 import { isProjectView, useThemeMode, type ProjectView } from "../frontendState";
 import type {
+  ActivityEntry,
   Board,
   Documentation,
   DocumentationNode,
@@ -114,6 +116,7 @@ export function ProjectPage() {
   const [documentationDirectoryName, setDocumentationDirectoryName] = useState("");
   const [documentationPageName, setDocumentationPageName] = useState("");
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
+  const [activityEntries, setActivityEntries] = useState<ActivityEntry[]>([]);
 
   const activeView = search.view;
   const activeSprintId = board?.activeSprint?.id ?? null;
@@ -124,13 +127,15 @@ export function ProjectPage() {
     setIsLoading(true);
 
     try {
-      const [boardData, documentationData] = await Promise.all([
+      const [boardData, documentationData, activityData] = await Promise.all([
         fetchBoard(projectSlug),
         fetchDocumentation(projectSlug),
+        fetchActivityLog(projectSlug, 20),
       ]);
 
       setBoard(boardData);
       setDocumentation(documentationData);
+      setActivityEntries(activityData.activities);
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load project");
@@ -761,6 +766,7 @@ export function ProjectPage() {
       >
         {activeView === "overview" ? (
           <OverviewView
+            activityEntries={activityEntries}
             board={board}
             documentationCount={countDocumentationNodes(documentation?.nodes ?? [])}
             onOpenBacklog={() => changeView("backlog")}
@@ -965,12 +971,14 @@ export function ProjectPage() {
 }
 
 function OverviewView({
+  activityEntries,
   board,
   documentationCount,
   onOpenBacklog,
   onOpenTask,
   sprintRecords,
 }: {
+  activityEntries: ActivityEntry[];
   board: Board | null;
   documentationCount: number;
   onOpenBacklog: () => void;
@@ -1100,6 +1108,36 @@ function OverviewView({
             <div className="empty-placeholder compact">
               <h3>No sprint history yet</h3>
               <p>Complete a sprint to preserve its snapshot and retrospective notes.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="panel-section">
+        <div className="section-heading-row">
+          <div>
+            <p className="section-kicker">Activity log</p>
+            <h2>Recent project activity</h2>
+          </div>
+        </div>
+        <div className="history-list">
+          {activityEntries.length ? (
+            activityEntries.slice(0, 10).map((entry) => (
+              <article className="history-card" key={entry.id}>
+                <div className="history-card-header">
+                  <strong>{entry.actor}</strong>
+                  <small>{formatSprintDate(entry.createdAt)}</small>
+                </div>
+                <p>
+                  {entry.action} on {entry.entityType}
+                </p>
+                {entry.details ? <p>{entry.details}</p> : null}
+              </article>
+            ))
+          ) : (
+            <div className="empty-placeholder compact">
+              <h3>No activity recorded yet</h3>
+              <p>Agent and human actions will appear here as they occur.</p>
             </div>
           )}
         </div>
@@ -1617,6 +1655,33 @@ function DocumentationView({
   onSelectedNameChange: (value: string) => void;
   onSelectNode: (nodeId: string | null) => void;
 }) {
+  const [docSearchQuery, setDocSearchQuery] = useState("");
+  const [previewMode, setPreviewMode] = useState(false);
+
+  const filteredNodes = useMemo(() => {
+    if (!docSearchQuery.trim() || !documentation) return documentation?.nodes ?? [];
+
+    const query = docSearchQuery.toLowerCase();
+    function filterRecursive(nodes: DocumentationNode[]): DocumentationNode[] {
+      return nodes
+        .map((node) => {
+          const nameMatch = node.name.toLowerCase().includes(query);
+          const contentMatch = node.content?.toLowerCase().includes(query) ?? false;
+          const children = node.kind === "directory" ? filterRecursive(node.children) : [];
+          const hasMatchingChild = children.length > 0;
+
+          if (nameMatch || contentMatch || hasMatchingChild) {
+            return { ...node, children };
+          }
+
+          return null;
+        })
+        .filter((node): node is DocumentationNode => node !== null);
+    }
+
+    return filterRecursive(documentation.nodes);
+  }, [docSearchQuery, documentation]);
+
   return (
     <div className="docs-grid">
       <aside className="panel-section">
@@ -1626,9 +1691,16 @@ function DocumentationView({
             <h2>{activeDirectoryPath}</h2>
           </div>
         </div>
+        <div className="field">
+          <input
+            onChange={(event) => setDocSearchQuery(event.target.value)}
+            placeholder="Filter tree..."
+            value={docSearchQuery}
+          />
+        </div>
         <div className="doc-tree">
-          {documentation?.nodes.length ? (
-            renderDocumentationTree(documentation.nodes, onSelectNode, selectedDocumentationNode?.id ?? null)
+          {filteredNodes.length ? (
+            renderDocumentationTree(filteredNodes, onSelectNode, selectedDocumentationNode?.id ?? null)
           ) : (
             <div className="empty-placeholder compact">
               <h3>No pages yet</h3>
@@ -1664,24 +1736,44 @@ function DocumentationView({
                 <p className="section-kicker">{selectedDocumentationNode.kind === "page" ? "Markdown page" : "Directory"}</p>
                 <h2>{selectedDocumentationNode.path}</h2>
               </div>
-              <button className="button button-danger" onClick={onDelete} type="button">
-                Delete
-              </button>
+              <div className="toolbar-actions">
+                {selectedPage ? (
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setPreviewMode(!previewMode)}
+                    type="button"
+                  >
+                    {previewMode ? "Edit" : "Preview"}
+                  </button>
+                ) : null}
+                <button className="button button-danger" onClick={onDelete} type="button">
+                  Delete
+                </button>
+              </div>
             </div>
             <label className="field">
               <span>Name</span>
               <input onChange={(event) => onSelectedNameChange(event.target.value)} value={selectedDocumentationName} />
             </label>
             {selectedPage ? (
-              <label className="field">
-                <span>Markdown</span>
-                <textarea
-                  className="doc-editor"
-                  onChange={(event) => onSelectedContentChange(event.target.value)}
-                  placeholder="# Product vision"
-                  value={selectedDocumentationContent}
-                />
-              </label>
+              previewMode ? (
+                <div className="field">
+                  <span>Preview</span>
+                  <div className="doc-preview">
+                    {renderSimpleMarkdown(selectedDocumentationContent)}
+                  </div>
+                </div>
+              ) : (
+                <label className="field">
+                  <span>Markdown</span>
+                  <textarea
+                    className="doc-editor"
+                    onChange={(event) => onSelectedContentChange(event.target.value)}
+                    placeholder="# Product vision"
+                    value={selectedDocumentationContent}
+                  />
+                </label>
+              )
             ) : (
               <div className="empty-placeholder compact">
                 <h3>Directory selected</h3>
@@ -1703,6 +1795,70 @@ function DocumentationView({
       </section>
     </div>
   );
+}
+
+function renderSimpleMarkdown(content: string) {
+  const lines = content.split("\n");
+  const elements: ReactNode[] = [];
+  let inCodeBlock = false;
+  let codeLines: string[] = [];
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index] ?? "";
+
+    if (line.startsWith("```")) {
+      if (inCodeBlock) {
+        elements.push(
+          <pre key={`code-${index}`} className="md-code-block">
+            <code>{codeLines.join("\n")}</code>
+          </pre>,
+        );
+        codeLines = [];
+        inCodeBlock = false;
+      } else {
+        inCodeBlock = true;
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeLines.push(line);
+      continue;
+    }
+
+    if (!line.trim()) {
+      elements.push(<br key={`br-${index}`} />);
+      continue;
+    }
+
+    if (line.startsWith("### ")) {
+      elements.push(<h4 key={`h3-${index}`}>{line.slice(4)}</h4>);
+      continue;
+    }
+
+    if (line.startsWith("## ")) {
+      elements.push(<h3 key={`h2-${index}`}>{line.slice(3)}</h3>);
+      continue;
+    }
+
+    if (line.startsWith("# ")) {
+      elements.push(<h2 key={`h1-${index}`}>{line.slice(2)}</h2>);
+      continue;
+    }
+
+    if (line.startsWith("- ")) {
+      elements.push(
+        <li key={`li-${index}`} className="md-list-item">
+          {line.slice(2)}
+        </li>,
+      );
+      continue;
+    }
+
+    elements.push(<p key={`p-${index}`}>{line}</p>);
+  }
+
+  return <div className="md-preview-content">{elements}</div>;
 }
 
 function findDocumentationNode(nodes: DocumentationNode[], nodeId: string | null): DocumentationNode | null {

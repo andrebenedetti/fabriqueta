@@ -1,8 +1,11 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import {
   addTaskToActiveSprint,
+  checkProjectHealth,
   claimTask,
   completeActiveSprint,
   createDocumentationNode,
@@ -12,13 +15,20 @@ import {
   deleteEpic,
   deleteDocumentationNode,
   deleteTask,
+  exportDocumentationToFilesystem,
+  findDocumentationNodeByPath,
+  getActivityLog,
+  getCompactProjectSummary,
   getProjectBoard,
   getProjectDocumentation,
+  importDocumentationFromFilesystem,
   listProjects,
+  logActivity,
   moveEpic,
   moveTask,
   releaseTask,
   removeTaskFromSprint,
+  searchDocumentation,
   startSprint,
   type DocumentationNode,
   type DocumentationNodeKind,
@@ -302,6 +312,162 @@ server.registerResource(
       },
     ],
   }),
+);
+
+server.registerResource(
+  "documentation-search",
+  new ResourceTemplate(
+    "fabriqueta://projects/{projectSlug}/documentation/search",
+    { list: undefined },
+  ),
+  {
+    title: "Documentation search",
+    description:
+      "Search documentation nodes by name and content. Returns matching nodes with path, content snippet, and position.",
+    mimeType: "application/json",
+  },
+  async (uri, { projectSlug }) => {
+    const searchParams = new URL(uri.href, "http://localhost").searchParams;
+    const query = searchParams.get("q") ?? "";
+    const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : 20;
+
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: jsonText({
+            query,
+            results: searchDocumentation(singleValue(projectSlug), query, { limit }),
+          }),
+        },
+      ],
+    };
+  },
+);
+
+server.registerResource(
+  "project-documentation-by-path",
+  new ResourceTemplate(
+    "fabriqueta://projects/{projectSlug}/documentation/by-path/{path*}",
+    { list: undefined },
+  ),
+  {
+    title: "Documentation node by path",
+    description:
+      "Look up a documentation node by its filesystem-style path (e.g. 'product/core-workflow.md'). Returns the node or null if not found.",
+    mimeType: "application/json",
+  },
+  async (uri, { projectSlug, path }) => {
+    const node = findDocumentationNodeByPath(singleValue(projectSlug), singleValue(path));
+
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: jsonText(node ?? { error: "Documentation node not found", path: singleValue(path) }),
+        },
+      ],
+    };
+  },
+);
+
+server.registerResource(
+  "project-summary",
+  new ResourceTemplate("fabriqueta://projects/{projectSlug}/summary", { list: undefined }),
+  {
+    title: "Compact project summary",
+    description:
+      "A lightweight project summary with counts and sprint status for low-token agent planning.",
+    mimeType: "application/json",
+  },
+  async (uri, { projectSlug }) => ({
+    contents: [
+      {
+        uri: uri.href,
+        mimeType: "application/json",
+        text: jsonText(getCompactProjectSummary(singleValue(projectSlug))),
+      },
+    ],
+  }),
+);
+
+server.registerResource(
+  "task-context-bundle",
+  new ResourceTemplate(
+    "fabriqueta://projects/{projectSlug}/tasks/{taskId}/context",
+    { list: undefined },
+  ),
+  {
+    title: "Task context bundle",
+    description:
+      "Composite context for a task: task details, epic, active sprint state, and linked documentation in one response.",
+    mimeType: "application/json",
+  },
+  async (uri, { projectSlug, taskId }) => {
+    const board = getProjectBoard(singleValue(projectSlug));
+    const taskSlug = singleValue(taskId);
+    let taskContext = null;
+
+    for (const epic of board.epics) {
+      const task = epic.tasks.find((candidate) => candidate.id === taskSlug);
+      if (task) {
+        taskContext = {
+          project: board.project,
+          activeSprint: board.activeSprint,
+          epic: {
+            id: epic.id,
+            title: epic.title,
+            description: epic.description,
+            position: epic.position,
+          },
+          task: {
+            ...task,
+            claimedBy: task.claimedBy,
+          },
+        };
+        break;
+      }
+    }
+
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: jsonText(taskContext ?? { error: "Task not found", taskId: taskSlug }),
+        },
+      ],
+    };
+  },
+);
+
+server.registerResource(
+  "project-activity",
+  new ResourceTemplate("fabriqueta://projects/{projectSlug}/activity", { list: undefined }),
+  {
+    title: "Project activity log",
+    description: "The activity/audit log for a project, with the most recent entries first.",
+    mimeType: "application/json",
+  },
+  async (uri, { projectSlug }) => {
+    const searchParams = new URL(uri.href, "http://localhost").searchParams;
+    const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : 50;
+    const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
+
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: jsonText({
+            activities: getActivityLog(singleValue(projectSlug), { limit, offset }),
+          }),
+        },
+      ],
+    };
+  },
 );
 
 server.registerPrompt(
@@ -873,6 +1039,33 @@ server.registerTool(
 );
 
 server.registerTool(
+  "search_documentation",
+  {
+    title: "Search documentation",
+    description:
+      "Search documentation nodes by name and content. Returns matching nodes with path, content snippet, and position.",
+    inputSchema: {
+      projectSlug: z.string(),
+      query: z.string(),
+      limit: z.number().optional(),
+    },
+  },
+  async ({ projectSlug, query, limit }) => {
+    try {
+      const results = searchDocumentation(projectSlug, query, { limit });
+      return successResult(`Found ${results.length} documentation matches for "${query}".`, {
+        query,
+        results,
+      });
+    } catch (error) {
+      return errorResult(
+        error instanceof Error ? error.message : "Failed to search documentation",
+      );
+    }
+  },
+);
+
+server.registerTool(
   "get_project_documentation",
   {
     title: "Get project documentation",
@@ -968,6 +1161,193 @@ server.registerTool(
     } catch (error) {
       return errorResult(
         error instanceof Error ? error.message : "Failed to delete documentation node",
+      );
+    }
+  },
+);
+
+server.registerTool(
+  "log_activity",
+  {
+    title: "Log activity",
+    description: "Record an activity or audit event for a project. Used to track agent actions, state changes, and decisions.",
+    inputSchema: {
+      projectSlug: z.string(),
+      actor: z.string(),
+      action: z.string(),
+      entityType: z.string(),
+      entityId: z.string(),
+      details: z.string().optional(),
+    },
+  },
+  async ({ projectSlug, actor, action, entityType, entityId, details }) => {
+    try {
+      const entry = logActivity(projectSlug, { actor, action, entityType, entityId, details });
+      return successResult(`Logged activity: ${action} on ${entityType} "${entityId}".`, entry);
+    } catch (error) {
+      return errorResult(error instanceof Error ? error.message : "Failed to log activity");
+    }
+  },
+);
+
+server.registerTool(
+  "get_activity_log",
+  {
+    title: "Get activity log",
+    description: "Read the activity/audit log for a project, with the most recent entries first.",
+    inputSchema: {
+      projectSlug: z.string(),
+      limit: z.number().optional(),
+      offset: z.number().optional(),
+    },
+  },
+  async ({ projectSlug, limit, offset }) => {
+    try {
+      const activities = getActivityLog(projectSlug, { limit, offset });
+      return successResult(`Loaded ${activities.length} activity entries.`, { activities });
+    } catch (error) {
+      return errorResult(error instanceof Error ? error.message : "Failed to load activity log");
+    }
+  },
+);
+
+function listSkills(targetDir?: string) {
+  const skillsRoot = targetDir
+    ? resolve(targetDir, ".claude/skills")
+    : resolve(import.meta.dir, "../../../.claude/skills");
+
+  try {
+    const entries = readdirSync(skillsRoot, { withFileTypes: true });
+    const skills: Array<{ name: string; description: string; path: string }> = [];
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+
+      const skillPath = resolve(skillsRoot, entry.name, "SKILL.md");
+      try {
+        const content = readFileSync(skillPath, "utf-8");
+        const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+        if (!frontmatterMatch) continue;
+
+        const frontmatter = frontmatterMatch[1] ?? "";
+        const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
+        const descMatch = frontmatter.match(/^description:\s*(.+)$/m);
+        const name = nameMatch?.[1]?.trim() ?? entry.name;
+        const description = descMatch?.[1]?.trim() ?? "";
+
+        skills.push({ name, description, path: `.claude/skills/${entry.name}/SKILL.md` });
+      } catch {
+        continue;
+      }
+    }
+
+    return skills;
+  } catch {
+    return [];
+  }
+}
+
+server.registerTool(
+  "check_project_health",
+  {
+    title: "Check project health",
+    description:
+      "Run hygiene heuristics on a project: detect stale tasks, abandoned sprints, documentation drift, and other issues.",
+    inputSchema: {
+      projectSlug: z.string(),
+    },
+  },
+  async ({ projectSlug }) => {
+    try {
+      const health = checkProjectHealth(projectSlug);
+      return successResult(
+        health.health === "good" ? "Project looks healthy." : `${health.warnings.length} issue(s) found.`,
+        health,
+      );
+    } catch (error) {
+      return errorResult(
+        error instanceof Error ? error.message : "Failed to check project health",
+      );
+    }
+  },
+);
+
+server.registerTool(
+  "export_documentation",
+  {
+    title: "Export documentation",
+    description:
+      "Export a project's documentation tree from the database to markdown files on disk at a specified directory.",
+    inputSchema: {
+      projectSlug: z.string(),
+      targetDir: z.string(),
+    },
+  },
+  async ({ projectSlug, targetDir }) => {
+    try {
+      const result = exportDocumentationToFilesystem(projectSlug, targetDir);
+      return successResult(
+        `Exported ${result.count} documentation node(s) to ${result.path}.`,
+        result,
+      );
+    } catch (error) {
+      return errorResult(
+        error instanceof Error ? error.message : "Failed to export documentation",
+      );
+    }
+  },
+);
+
+server.registerTool(
+  "import_documentation",
+  {
+    title: "Import documentation",
+    description:
+      "Import markdown files from a directory on disk into the project's documentation tree. Uses updated_at timestamps for conflict detection (filesystem mtime wins if newer).",
+    inputSchema: {
+      projectSlug: z.string(),
+      sourceDir: z.string(),
+    },
+  },
+  async ({ projectSlug, sourceDir }) => {
+    try {
+      const result = importDocumentationFromFilesystem(projectSlug, sourceDir);
+      return successResult(
+        `Import complete: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.deleted} deleted.`,
+        result,
+      );
+    } catch (error) {
+      return errorResult(
+        error instanceof Error ? error.message : "Failed to import documentation",
+      );
+    }
+  },
+);
+
+server.registerTool(
+  "list_available_skills",
+  {
+    title: "List available skills",
+    description:
+      "Scan .claude/skills/ directories, read each SKILL.md frontmatter, and return all available skills with name and description. Accepts an optional projectSlug to scan a specific project's skill directory.",
+    inputSchema: {
+      projectSlug: z.string().optional(),
+    },
+  },
+  async ({ projectSlug }) => {
+    try {
+      let targetDir: string | undefined;
+
+      if (projectSlug) {
+        const projectsDir = resolve(import.meta.dir, "../../../data/projects");
+        targetDir = resolve(projectsDir, "..");
+      }
+
+      const skills = listSkills(targetDir);
+      return successResult(`Found ${skills.length} available skill(s).`, { skills });
+    } catch (error) {
+      return errorResult(
+        error instanceof Error ? error.message : "Failed to list available skills",
       );
     }
   },
