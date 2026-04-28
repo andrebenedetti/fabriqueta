@@ -7,7 +7,6 @@ import {
   type CommandAction,
 } from "../components/CommandPalette";
 import { Icon } from "../components/icons";
-import { useThemeMode } from "../frontendState";
 import type { Project } from "../types";
 import { Route as RootRoute } from "./__root";
 
@@ -19,7 +18,6 @@ export const Route = createRoute({
 
 function ProjectsHomePage() {
   const navigate = useNavigate({ from: "/" });
-  const [theme, setTheme] = useThemeMode();
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectName, setProjectName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -125,7 +123,6 @@ function ProjectsHomePage() {
         navSections={navSections}
         onCommandClick={() => setIsCommandOpen(true)}
         onQuickCreate={() => setIsCreateOpen(true)}
-        onThemeToggle={() => setTheme(theme === "light" ? "dark" : "light")}
         pageHeader={
           <div className="page-header">
             <div>
@@ -146,9 +143,6 @@ function ProjectsHomePage() {
               history, and docs.
             </small>
           </div>
-        }
-        themeLabel={
-          theme === "light" ? "Switch to dark mode" : "Switch to light mode"
         }
         topbarMeta={
           <button
