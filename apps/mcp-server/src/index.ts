@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import {
   addTaskToActiveSprint,
+  claimTask,
   completeActiveSprint,
   createDocumentationNode,
   createEpic,
@@ -16,12 +17,14 @@ import {
   listProjects,
   moveEpic,
   moveTask,
+  releaseTask,
   removeTaskFromSprint,
   startSprint,
   type DocumentationNode,
   type DocumentationNodeKind,
   type TaskStatus,
   updateDocumentationNode,
+  updateEpic,
   updateSprintRetrospectiveNotes,
   updateTask,
 } from "../../server/src/db";
@@ -111,7 +114,10 @@ function getTaskContextFromProject(projectSlug: string, taskId: string) {
           description: epic.description,
           position: epic.position,
         },
-        task,
+        task: {
+          ...task,
+          claimedBy: task.claimedBy,
+        },
       };
     }
   }
@@ -524,6 +530,37 @@ server.registerTool(
 );
 
 server.registerTool(
+  "update_epic",
+  {
+    title: "Update epic",
+    description: "Update an epic's title or description.",
+    inputSchema: {
+      projectSlug: z.string(),
+      epicId: z.string(),
+      title: z.string().optional(),
+      description: z.string().optional(),
+    },
+  },
+  async ({ projectSlug, epicId, title, description }) => {
+    try {
+      const board = getProjectBoard(projectSlug);
+      const epic = board.epics.find((candidate) => candidate.id === epicId);
+      if (!epic) {
+        throw new Error("Epic not found");
+      }
+
+      const updated = updateEpic(projectSlug, epicId, {
+        title: title ?? epic.title,
+        description: description ?? epic.description,
+      });
+      return successResult(`Updated epic "${updated.title}" in "${projectSlug}".`, updated);
+    } catch (error) {
+      return errorResult(error instanceof Error ? error.message : "Failed to update epic");
+    }
+  },
+);
+
+server.registerTool(
   "create_task",
   {
     title: "Create task",
@@ -648,6 +685,47 @@ server.registerTool(
 );
 
 server.registerTool(
+  "claim_task",
+  {
+    title: "Claim task",
+    description: "Claim a task for execution. Prevents other agents from picking up the same task.",
+    inputSchema: {
+      projectSlug: z.string(),
+      taskId: z.string(),
+      claimedBy: z.string(),
+    },
+  },
+  async ({ projectSlug, taskId, claimedBy }) => {
+    try {
+      const task = claimTask(projectSlug, taskId, claimedBy);
+      return successResult(`Claimed task "${task.title}" for "${claimedBy}".`, task);
+    } catch (error) {
+      return errorResult(error instanceof Error ? error.message : "Failed to claim task");
+    }
+  },
+);
+
+server.registerTool(
+  "release_task",
+  {
+    title: "Release task",
+    description: "Release a claimed task so other agents can pick it up.",
+    inputSchema: {
+      projectSlug: z.string(),
+      taskId: z.string(),
+    },
+  },
+  async ({ projectSlug, taskId }) => {
+    try {
+      const task = releaseTask(projectSlug, taskId);
+      return successResult(`Released task "${task.title}".`, task);
+    } catch (error) {
+      return errorResult(error instanceof Error ? error.message : "Failed to release task");
+    }
+  },
+);
+
+server.registerTool(
   "update_task_status",
   {
     title: "Update task status",
@@ -672,6 +750,35 @@ server.registerTool(
       return successResult(`Updated "${task.title}" to status "${task.status}".`, task);
     } catch (error) {
       return errorResult(error instanceof Error ? error.message : "Failed to update task status");
+    }
+  },
+);
+
+server.registerTool(
+  "update_task",
+  {
+    title: "Update task",
+    description: "Update a task's title, description, or status independently. Unlike update_task_status, this does not require passing a status when only text fields change.",
+    inputSchema: {
+      projectSlug: z.string(),
+      taskId: z.string(),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      status: statusSchema.optional(),
+    },
+  },
+  async ({ projectSlug, taskId, title, description, status }) => {
+    try {
+      const currentTask = getTaskFromBoard(projectSlug, taskId);
+      const task = updateTask(projectSlug, taskId, {
+        title: title ?? currentTask.title,
+        description: description ?? currentTask.description,
+        status: status as TaskStatus | undefined,
+      });
+
+      return successResult(`Updated task "${task.title}".`, task);
+    } catch (error) {
+      return errorResult(error instanceof Error ? error.message : "Failed to update task");
     }
   },
 );

@@ -103,6 +103,20 @@ export async function deleteTask(projectSlug: string, taskId: string) {
   });
 }
 
+export async function claimTask(projectSlug: string, taskId: string, claimedBy: string) {
+  return request(`/api/projects/${projectSlug}/tasks/${taskId}/claim`, {
+    method: "POST",
+    body: JSON.stringify({ claimedBy }),
+  });
+}
+
+export async function releaseTask(projectSlug: string, taskId: string) {
+  return request(`/api/projects/${projectSlug}/tasks/${taskId}/release`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
 export async function updateTaskStatus(
   projectSlug: string,
   taskId: string,

@@ -51,11 +51,13 @@ export type TaskRow = {
   position: number;
   status: TaskStatus;
   sprintId: string | null;
+  claimedBy: string | null;
   createdAt: string;
 };
 
 export type SprintTaskRow = TaskRow & {
   epicTitle: string;
+  claimedBy: string | null;
 };
 
 export type DocumentationNodeKind = "directory" | "page";
@@ -165,6 +167,18 @@ function initializeProjectSchema(db: Database) {
 
   if (!sprintIdColumn) {
     db.exec("ALTER TABLE tasks ADD COLUMN sprint_id TEXT;");
+  }
+
+  const claimedByColumn = db
+    .query<{ name: string }, []>(`
+      SELECT name
+      FROM pragma_table_info('tasks')
+      WHERE name = 'claimed_by'
+    `)
+    .get();
+
+  if (!claimedByColumn) {
+    db.exec("ALTER TABLE tasks ADD COLUMN claimed_by TEXT DEFAULT NULL;");
   }
 
   const sprintNotesColumn = db
@@ -353,6 +367,7 @@ function requireTask(db: Database, taskId: string) {
         position,
         status,
         sprint_id AS sprintId,
+        claimed_by AS claimedBy,
         created_at AS createdAt
       FROM tasks
       WHERE id = ?
@@ -817,6 +832,27 @@ export function removeTaskFromSprint(projectSlug: string, taskId: string) {
   });
 }
 
+export function claimTask(projectSlug: string, taskId: string, claimedBy: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const task = requireTask(db, taskId);
+
+    if (task.claimedBy && task.claimedBy !== claimedBy) {
+      throw new Error(`Task is already claimed by "${task.claimedBy}"`);
+    }
+
+    db.query(`UPDATE tasks SET claimed_by = ? WHERE id = ?`).run(claimedBy, taskId);
+    return requireTask(db, taskId);
+  });
+}
+
+export function releaseTask(projectSlug: string, taskId: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const task = requireTask(db, taskId);
+    db.query(`UPDATE tasks SET claimed_by = NULL WHERE id = ?`).run(taskId);
+    return requireTask(db, taskId);
+  });
+}
+
 export function moveEpic(projectSlug: string, epicId: string, direction: "up" | "down") {
   return withProjectDb(projectSlug, (db) => {
     const move = db.transaction(() => {
@@ -986,6 +1022,7 @@ export function getProjectBoard(projectSlug: string) {
               position,
               status,
               sprint_id AS sprintId,
+              claimed_by AS claimedBy,
               created_at AS createdAt
             FROM tasks
             WHERE epic_id = ?
@@ -1005,6 +1042,7 @@ export function getProjectBoard(projectSlug: string) {
               tasks.position,
               tasks.status,
               tasks.sprint_id AS sprintId,
+              tasks.claimed_by AS claimedBy,
               tasks.created_at AS createdAt,
               epics.title AS epicTitle
             FROM tasks

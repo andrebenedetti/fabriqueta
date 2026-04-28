@@ -37,6 +37,7 @@ export type Task = {
   position: number;
   status: TaskStatus;
   sprintId: string | null;
+  claimedBy: string | null;
   createdAt: string;
 };
 

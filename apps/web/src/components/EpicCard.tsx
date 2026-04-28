@@ -166,6 +166,9 @@ export function EpicCard({
                 {task.description ? <small className="muted">{task.description}</small> : null}
                 <div className="task-meta">
                   <small className="muted">Task {task.position + 1}</small>
+                  {task.claimedBy ? (
+                    <span className="claimed-badge">Claimed by {task.claimedBy}</span>
+                  ) : null}
                   <span className={`status-badge status-${task.status}`}>
                     {taskLifecycleLabel(task, activeSprintId)}
                   </span>

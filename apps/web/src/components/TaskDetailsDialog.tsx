@@ -150,6 +150,9 @@ export function TaskDetailsDialog({
                 <div className={`signal-pill status-${task.status}`}>Status: {statusLabel(task.status)}</div>
                 <div className="signal-pill">Epic: {epicTitle}</div>
                 <div className="signal-pill">Task {task.position + 1}</div>
+                {task.claimedBy ? (
+                  <div className="signal-pill claimed-pill">Claimed by {task.claimedBy}</div>
+                ) : null}
               </div>
             </section>
 

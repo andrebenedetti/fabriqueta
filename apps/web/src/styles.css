@@ -912,6 +912,23 @@ kbd {
   color: var(--brand);
 }
 
+.claimed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.claimed-pill {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
 .priority-high {
   background: var(--warning-soft);
   color: var(--warning);

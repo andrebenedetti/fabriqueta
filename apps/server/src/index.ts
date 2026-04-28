@@ -1,5 +1,6 @@
 import {
   addTaskToActiveSprint,
+  claimTask,
   completeActiveSprint,
   createDocumentationNode,
   createEpic,
@@ -13,6 +14,7 @@ import {
   listProjects,
   moveEpic,
   moveTask,
+  releaseTask,
   removeTaskFromSprint,
   startSprint,
   type DocumentationNodeKind,
@@ -304,6 +306,31 @@ export async function handleRequest(request: Request) {
           status: getStatus(body.status),
         }),
       });
+    }
+
+    if (
+      request.method === "POST" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "tasks" &&
+      parts[5] === "claim" &&
+      parts.length === 6
+    ) {
+      const body = await parseBody<{ claimedBy?: unknown }>(request);
+      return json({
+        task: claimTask(parts[2], parts[4], String(body.claimedBy ?? "")),
+      });
+    }
+
+    if (
+      request.method === "POST" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "tasks" &&
+      parts[5] === "release" &&
+      parts.length === 6
+    ) {
+      return json({ task: releaseTask(parts[2], parts[4]) });
     }
 
     if (
