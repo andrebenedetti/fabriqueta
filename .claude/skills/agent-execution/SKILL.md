@@ -38,6 +38,16 @@ When the task is finished:
 5. **Review the sprint board** — Check if any other tasks are unblocked by your completion and should be started next.
 6. **Select the next task** — Use `get_project_board` to find the next highest-priority ready task.
 
+## Snapshot Before Risky Work
+
+Before starting risky work (major refactors, experimental features, schema changes, or large-scale deletions), create a snapshot:
+
+- Call `create_snapshot` with a label like `pre-refactor-{feature}` or `pre-experimental-{date}`
+- This gives you a rollback point if the work introduces issues
+- Log the snapshot ID in the task description or a comment
+
+For autonomous delivery sessions, this is handled automatically by the `autonomous-delivery` skill.
+
 ## What Not To Do
 
 - Do not start work on an unclaimed task.

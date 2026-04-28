@@ -22,7 +22,7 @@ import {
 import { AppShell, type ShellNavSection } from "../components/AppShell";
 import { CommandPalette, type CommandAction } from "../components/CommandPalette";
 import { ConfirmationDialog } from "../components/ConfirmationDialog";
-import { Icon } from "../components/icons";
+import { Icon, type IconName } from "../components/icons";
 import { TaskDetailsDialog } from "../components/TaskDetailsDialog";
 import { ToastContainer } from "../components/ui/Toast";
 import { ErrorBoundary } from "../components/ui/ErrorBoundary";
@@ -32,6 +32,7 @@ import { BacklogView } from "../views/BacklogView";
 import { PlanningView } from "../views/PlanningView";
 import { BoardView } from "../views/BoardView";
 import { DocumentationView } from "../views/DocumentationView";
+import { SnapshotManagement } from "../components/SnapshotManagement";
 import { findDocumentationNode, findFirstPageNode, countDocumentationNodes, type BacklogSort, type TaskStatus } from "../utils";
 import type { Board, Documentation, Task } from "../types";
 import { Route as RootRoute } from "./__root";
@@ -40,7 +41,7 @@ export const Route = createRoute({
   getParentRoute: () => RootRoute,
   path: "/projects/$projectSlug",
   validateSearch: (search: Record<string, unknown>) => ({
-    view: (typeof search.view === "string" && ["overview", "backlog", "planning", "board", "docs"].includes(search.view) ? search.view : "overview") as ProjectView,
+    view: (typeof search.view === "string" && ["overview", "backlog", "planning", "board", "docs", "snapshots"].includes(search.view) ? search.view : "overview") as ProjectView,
   }),
   component: ProjectPage,
 });
@@ -52,12 +53,13 @@ type ConfirmDialogState = {
   title: string;
 } | null;
 
-const viewTabs: Array<{ id: ProjectView; label: string; icon: "home" | "backlog" | "board" | "docs" }> = [
-  { id: "overview", label: "Overview", icon: "home" },
-  { id: "backlog", label: "Backlog", icon: "backlog" },
-  { id: "planning", label: "Planning", icon: "board" },
-  { id: "board", label: "Board", icon: "board" },
-  { id: "docs", label: "Docs", icon: "docs" },
+const viewTabs: Array<{ id: ProjectView; label: string; icon: IconName }> = [
+  { id: "overview", label: "Overview", icon: "home" as IconName },
+  { id: "backlog", label: "Backlog", icon: "backlog" as IconName },
+  { id: "planning", label: "Planning", icon: "board" as IconName },
+  { id: "board", label: "Board", icon: "board" as IconName },
+  { id: "docs", label: "Docs", icon: "docs" as IconName },
+  { id: "snapshots", label: "Snapshots", icon: "backup" as IconName },
 ];
 
 export function ProjectPage() {
@@ -369,17 +371,17 @@ export function ProjectPage() {
   const commandActions: CommandAction[] = [
     ...viewTabs.map((tab): CommandAction => ({
       id: `view-${tab.id}`, label: `Open ${tab.label}`, hint: board?.project.name ?? projectSlug,
-      icon: tab.icon, keywords: `${tab.label} ${projectSlug}`, onSelect: () => changeView(tab.id),
+      icon: tab.icon as IconName, keywords: `${tab.label} ${projectSlug}`, onSelect: () => changeView(tab.id),
     })),
-    { id: "create-task", label: "Create task", hint: "Open quick create", icon: "plus", onSelect: () => setIsQuickCreateOpen(true) },
-    { id: "create-epic", label: "Create epic", hint: "Add backlog structure", icon: "plus", onSelect: () => setIsCreateEpicOpen(true) },
+    { id: "create-task", label: "Create task", hint: "Open quick create", icon: "plus" as IconName, onSelect: () => setIsQuickCreateOpen(true) },
+    { id: "create-epic", label: "Create epic", hint: "Add backlog structure", icon: "plus" as IconName, onSelect: () => setIsCreateEpicOpen(true) },
     ...taskRecords.slice(0, 20).map((r): CommandAction => ({
       id: `task-${r.task.id}`, label: r.task.title, hint: `${r.epic.title} · status: ${r.task.status}`,
-      keywords: `${r.epic.title} ${r.task.description}`, icon: "search" as const,
+      keywords: `${r.epic.title} ${r.task.description}`, icon: "search" as IconName,
       onSelect: () => setSelectedTaskId(r.task.id),
     })),
     ...(documentation?.nodes ?? []).slice(0, 12).map((node): CommandAction => ({
-      id: `doc-${node.id}`, label: node.name, hint: node.path, icon: "docs" as const,
+      id: `doc-${node.id}`, label: node.name, hint: node.path, icon: "docs" as IconName,
       onSelect: () => { changeView("docs"); setSelectedDocNodeId(node.id); },
     })),
   ];
@@ -388,22 +390,18 @@ export function ProjectPage() {
     {
       label: "Workspace",
       items: [
-        { id: "home", label: "Projects", icon: "home" as const, onClick: () => void navigate({ to: "/" }) },
-        { id: "overview", label: "Overview", icon: "projects" as const, active: activeView === "overview", onClick: () => changeView("overview") },
+        { id: "home", label: "Projects", icon: "home" as IconName, onClick: () => void navigate({ to: "/" }) },
+        { id: "overview", label: "Overview", icon: "projects" as IconName, active: activeView === "overview", onClick: () => changeView("overview") },
       ],
     },
     {
       label: "Delivery",
       items: [
-        { id: "backlog", label: "Backlog", icon: "backlog" as const, active: activeView === "backlog", onClick: () => changeView("backlog") },
-        { id: "planning", label: "Planning", icon: "board" as const, active: activeView === "planning", onClick: () => changeView("planning") },
-        { id: "board", label: "Board", icon: "board" as const, active: activeView === "board", onClick: () => changeView("board") },
-      ],
-    },
-    {
-      label: "Documentation",
-      items: [
-        { id: "docs", label: "Docs", icon: "docs" as const, active: activeView === "docs", badge: countDocumentationNodes(documentation?.nodes ?? []), onClick: () => changeView("docs") },
+        { id: "backlog", label: "Backlog", icon: "backlog" as IconName, active: activeView === "backlog", onClick: () => changeView("backlog") },
+        { id: "planning", label: "Planning", icon: "board" as IconName, active: activeView === "planning", onClick: () => changeView("planning") },
+        { id: "board", label: "Board", icon: "board" as IconName, active: activeView === "board", onClick: () => changeView("board") },
+        { id: "docs", label: "Docs", icon: "docs" as IconName, badge: countDocumentationNodes(documentation?.nodes ?? []), active: activeView === "docs", onClick: () => changeView("docs") },
+        { id: "snapshots", label: "Snapshots", icon: "backup" as IconName, active: activeView === "snapshots", onClick: () => changeView("snapshots") },
       ],
     },
   ];
@@ -425,16 +423,16 @@ export function ProjectPage() {
         </div>
       </div>
       <div className="view-tabs" role="tablist" aria-label="Project views">
-        {viewTabs.map((tab) => (
+        {viewTabs.map((tab: { id: ProjectView; label: string; icon: IconName }) => (
           <button
             aria-selected={activeView === tab.id}
             className={`view-tab${activeView === tab.id ? " active" : ""}`}
             key={tab.id}
-            onClick={() => changeView(tab.id)}
+            onClick={() => changeView(tab.id as ProjectView)}
             role="tab"
             type="button"
           >
-            <Icon name={tab.icon} />
+            <Icon name={tab.icon as IconName} />
             <span>{tab.label}</span>
           </button>
         ))}
@@ -549,6 +547,11 @@ export function ProjectPage() {
                   onSelectedNameChange={setSelectedDocName}
                   onSelectNode={setSelectedDocNodeId}
                 />
+              ) : null}
+            </ErrorBoundary>
+            <ErrorBoundary>
+              {activeView === "snapshots" ? (
+                <SnapshotManagement projectSlug={projectSlug} />
               ) : null}
             </ErrorBoundary>
           </>

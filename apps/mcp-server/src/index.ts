@@ -37,6 +37,10 @@ import {
   updateEpic,
   updateSprintRetrospectiveNotes,
   updateTask,
+  createSnapshot,
+  listSnapshots,
+  restoreSnapshot,
+  deleteSnapshot,
 } from "../../server/src/db";
 
 const server = new McpServer({
@@ -1348,6 +1352,103 @@ server.registerTool(
     } catch (error) {
       return errorResult(
         error instanceof Error ? error.message : "Failed to list available skills",
+      );
+    }
+  },
+);
+
+server.registerTool(
+  "create_snapshot",
+  {
+    title: "Create snapshot",
+    description:
+      "Create a point-in-time snapshot of the project: copies the SQLite DB and exports documentation to a snapshot directory. Logs the action in activity_log.",
+    inputSchema: {
+      projectSlug: z.string(),
+      label: z.string().optional(),
+    },
+  },
+  async ({ projectSlug, label }) => {
+    try {
+      const snapshot = createSnapshot(projectSlug, { label: label ?? null });
+      return successResult(
+        `Snapshot created: ${snapshot.id}`,
+        snapshot,
+      );
+    } catch (error) {
+      return errorResult(
+        error instanceof Error ? error.message : "Failed to create snapshot",
+      );
+    }
+  },
+);
+
+server.registerTool(
+  "list_snapshots",
+  {
+    title: "List snapshots",
+    description:
+      "List all snapshots for a project with metadata (id, label, timestamp, sizes, row counts). Newest first.",
+    inputSchema: {
+      projectSlug: z.string(),
+    },
+  },
+  async ({ projectSlug }) => {
+    try {
+      const snapshots = listSnapshots(projectSlug);
+      return successResult(
+        `Found ${snapshots.length} snapshot(s).`,
+        { snapshots },
+      );
+    } catch (error) {
+      return errorResult(
+        error instanceof Error ? error.message : "Failed to list snapshots",
+      );
+    }
+  },
+);
+
+server.registerTool(
+  "restore_snapshot",
+  {
+    title: "Restore snapshot",
+    description:
+      "Restore a project from a snapshot. Replaces the current DB with the snapshot DB and re-imports documentation. Irreversible — current state is lost.",
+    inputSchema: {
+      projectSlug: z.string(),
+      snapshotId: z.string(),
+    },
+  },
+  async ({ projectSlug, snapshotId }) => {
+    try {
+      restoreSnapshot(projectSlug, snapshotId);
+      return successResult("Snapshot restored successfully.");
+    } catch (error) {
+      return errorResult(
+        error instanceof Error ? error.message : "Failed to restore snapshot",
+      );
+    }
+  },
+);
+
+server.registerTool(
+  "delete_snapshot",
+  {
+    title: "Delete snapshot",
+    description:
+      "Delete a snapshot and its associated files (DB copy, metadata, docs directory). Logs the action in activity_log.",
+    inputSchema: {
+      projectSlug: z.string(),
+      snapshotId: z.string(),
+    },
+  },
+  async ({ projectSlug, snapshotId }) => {
+    try {
+      const result = deleteSnapshot(projectSlug, snapshotId);
+      return successResult("Snapshot deleted.", result);
+    } catch (error) {
+      return errorResult(
+        error instanceof Error ? error.message : "Failed to delete snapshot",
       );
     }
   },

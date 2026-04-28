@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Board, Documentation, ActivityEntry, Epic, Task, TaskStatus, Sprint } from "./types";
+import type { SnapshotMetadata } from "./api";
 import type { TaskRecord } from "./utils";
 
 function buildTaskRecords(board: Board | null): TaskRecord[] {
@@ -24,7 +25,7 @@ type ConfirmDialogState = {
   onConfirm: () => Promise<boolean | void>;
 } | null;
 
-export type ProjectView = "overview" | "backlog" | "planning" | "board" | "docs";
+export type ProjectView = "overview" | "backlog" | "planning" | "board" | "docs" | "snapshots";
 
 interface AppState {
   board: Board | null;
@@ -49,6 +50,12 @@ interface AppState {
   get taskRecords(): TaskRecord[];
   get activeSprintId(): string | null;
   get sprintRecords(): TaskRecord[];
+  snapshots: SnapshotMetadata[];
+  setSnapshots: (snapshots: SnapshotMetadata[]) => void;
+  fetchSnapshots: (projectSlug: string) => Promise<void>;
+  createSnapshot: (projectSlug: string, label?: string) => Promise<void>;
+  restoreSnapshot: (projectSlug: string, snapshotId: string) => Promise<void>;
+  deleteSnapshot: (projectSlug: string, snapshotId: string) => Promise<void>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -93,5 +100,28 @@ export const useStore = create<AppState>((set, get) => ({
     const board = get().board;
     if (!board?.activeSprint) return [];
     return buildTaskRecords(board).filter((r) => r.task.sprintId === board.activeSprint!.id);
+  },
+
+  snapshots: [],
+  setSnapshots: (snapshots) => set({ snapshots }),
+  fetchSnapshots: async (projectSlug) => {
+    const data = await import("./api").then((m) => m.fetchSnapshots(projectSlug));
+    set({ snapshots: data.snapshots });
+  },
+  createSnapshot: async (projectSlug, label?) => {
+    const data = await import("./api").then((m) => m.createSnapshotApi(projectSlug, label));
+    set((state) => ({ snapshots: [data.snapshot, ...state.snapshots] }));
+  },
+  restoreSnapshot: async (projectSlug, snapshotId) => {
+    await import("./api").then((m) => m.restoreSnapshotApi(projectSlug, snapshotId));
+    const [board, docs] = await Promise.all([
+      import("./api").then((m) => m.fetchBoard(projectSlug)),
+      import("./api").then((m) => m.fetchDocumentation(projectSlug)),
+    ]);
+    set({ board, documentation: docs });
+  },
+  deleteSnapshot: async (projectSlug, snapshotId) => {
+    await import("./api").then((m) => m.deleteSnapshotApi(projectSlug, snapshotId));
+    set((state) => ({ snapshots: state.snapshots.filter((s) => s.id !== snapshotId) }));
   },
 }));

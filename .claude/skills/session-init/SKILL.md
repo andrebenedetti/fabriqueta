@@ -7,10 +7,22 @@ description: Mandatory session bootloader. Scans all available .claude/skills/, 
 
 This skill must be the **first** skill loaded in any agent session. It inventories all available skills, matches them against the current task, and activates relevant ones. Do not skip this step.
 
-## Pre-Flight Scan
+## Quick Exit (No Task)
+
+If there is no current task, no sprint goal, and no user request or prompt, skip the full scan and immediately load `soul`:
+
+```
+Session init: no task or prompt detected, loaded soul as minimum
+```
+
+Do not read any skill files. Stop here.
+
+## Pre-Flight Scan (Task Exists)
+
+Only run this section if a task, sprint goal, or user prompt exists.
 
 1. **List all skill directories** — Enumerate all directories under `.claude/skills/`. Each directory with a `SKILL.md` file is a skill.
-2. **Read all skill frontmatter** — For each `SKILL.md`, read its YAML frontmatter. Extract `name` and `description`.
+2. **Read skill frontmatter only** — For each `SKILL.md`, read only the first 5 lines (YAML frontmatter). Extract `name` and `description`. Do not read the full file body.
 3. **Match against the current task** — Compare each skill's `name` and `description` against:
    - The current task title and description
    - The active sprint goal
@@ -26,7 +38,7 @@ This skill must be the **first** skill loaded in any agent session. It inventori
 
 ## Fallback
 
-If no skills match, load `soul` as the minimum. `soul` will then discover and load sibling skills (see the `soul` skill for cross-skill discovery).
+If no skills match after the full scan, load `soul` as the minimum. `soul` will then discover and load sibling skills (see the `soul` skill for cross-skill discovery).
 
 ## Logging
 
@@ -36,10 +48,16 @@ Record which skills were loaded at the start of the session so there is an audit
 Session init: loaded [skill-a, skill-b, skill-c] matching task "<task-title>"
 ```
 
-If fallback was used:
+If fallback was used after a full scan:
 
 ```
-Session init: no direct matches, loaded soul/skill as minimum
+Session init: no direct matches, loaded soul as minimum
+```
+
+If quick exit was used (no task/prompt):
+
+```
+Session init: no task or prompt detected, loaded soul as minimum
 ```
 
 ## What Not To Do

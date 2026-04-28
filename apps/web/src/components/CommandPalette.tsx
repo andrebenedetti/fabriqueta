@@ -1,12 +1,12 @@
 import { useDeferredValue, useMemo, useState } from "react";
-import { Icon } from "./icons";
+import { Icon, type IconName } from "./icons";
 
 export type CommandAction = {
   id: string;
   label: string;
   hint?: string;
   keywords?: string;
-  icon?: "search" | "plus" | "board" | "backlog" | "reports" | "docs" | "settings" | "projects" | "home" | "inbox";
+  icon?: IconName;
   onSelect: () => void;
 };
 

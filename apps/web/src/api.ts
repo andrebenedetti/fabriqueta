@@ -218,3 +218,48 @@ export async function fetchActivityLog(projectSlug: string, limit?: number, offs
     `/api/projects/${projectSlug}/activity${query ? `?${query}` : ""}`,
   );
 }
+
+export type SnapshotMetadata = {
+  id: string;
+  label: string | null;
+  createdAt: string;
+  dbSizeBytes: number;
+  docCount: number;
+  docSizeBytes: number;
+  tableRowCounts: {
+    epics: number;
+    tasks: number;
+    sprints: number;
+    documentation_nodes: number;
+    activity_log: number;
+  };
+};
+
+export async function fetchSnapshots(projectSlug: string) {
+  return request<{ snapshots: SnapshotMetadata[] }>(
+    `/api/projects/${projectSlug}/snapshots`,
+  );
+}
+
+export async function createSnapshotApi(projectSlug: string, label?: string) {
+  return request<{ snapshot: SnapshotMetadata }>(
+    `/api/projects/${projectSlug}/snapshots`,
+    {
+      method: "POST",
+      body: JSON.stringify({ label }),
+    },
+  );
+}
+
+export async function restoreSnapshotApi(projectSlug: string, snapshotId: string) {
+  return request(`/api/projects/${projectSlug}/snapshots/${snapshotId}/restore`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function deleteSnapshotApi(projectSlug: string, snapshotId: string) {
+  return request(`/api/projects/${projectSlug}/snapshots/${snapshotId}`, {
+    method: "DELETE",
+  });
+}

@@ -1,6 +1,6 @@
 import type { ReactNode, SVGProps } from "react";
 
-type IconName =
+ export type IconName =
   | "home"
   | "projects"
   | "board"
@@ -23,7 +23,10 @@ type IconName =
   | "grip"
   | "clock"
   | "inbox"
-  | "user";
+  | "user"
+  | "backup"
+  | "refresh"
+  | "trash";
 
 const iconPaths: Record<IconName, ReactNode> = {
   home: <path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" />,
@@ -164,8 +167,34 @@ const iconPaths: Record<IconName, ReactNode> = {
   ),
   user: (
     <>
-      <path d="M12 12a4 4 0 1 0 0-8a4 4 0 0 0 0 8Z" />
+      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 1 0 0 8Z" />
       <path d="M5 21a7 7 0 0 1 14 0" />
+    </>
+  ),
+  backup: (
+    <>
+      <path d="M12 4v8l3 3" />
+      <path d="M8 8a6 6 0 0 1 8 0" />
+      <path d="M8 4v2" />
+      <path d="M16 4v2" />
+      <rect height="4" width="16" x="4" y="16" rx="1" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M21 3v5h-5" />
+      <path d="M3 12a9 9 0 0 1 15-6.7" />
+      <path d="M3 3v5h5" />
+      <path d="M21 12a9 9 0 0 1-15 6.7" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M9 5v1" />
+      <path d="M15 5v1" />
+      <path d="M6 5v14a2 2 0 0 0 4 0v-2h8v2a2 2 0 0 0 4 0V5" />
+      <path d="M19 5l-1 14a2 2 0 0 0 2 0" />
+      <path d="M5 5l1 14a2 2 0 0 0 2 0" />
     </>
   ),
 };

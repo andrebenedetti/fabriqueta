@@ -1,10 +1,10 @@
 import { useState, useEffect, type ReactNode } from "react";
-import { Icon } from "./icons";
+import { Icon, type IconName } from "./icons";
 
 export type ShellNavItem = {
   id: string;
   label: string;
-  icon: "home" | "projects" | "board" | "backlog" | "reports" | "settings" | "team" | "docs" | "inbox";
+  icon: IconName;
   active?: boolean;
   badge?: string | number | null;
   disabled?: boolean;

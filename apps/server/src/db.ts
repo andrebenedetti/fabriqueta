@@ -492,7 +492,7 @@ function buildDocumentationTree(
   parentPath = "",
 ): DocumentationNode[] {
   return rows
-    .filter((row) => row.parentId === parentId)
+    .filter((row) => (row.parentId ?? null) === parentId)
     .map((row) => {
       const path = parentPath ? `${parentPath}/${row.name}` : row.name;
       const children = row.kind === "directory" ? buildDocumentationTree(rows, row.id, path) : [];
@@ -1560,3 +1560,238 @@ export function getProjectBoard(projectSlug: string) {
 }
 
 ensureProjectFile({ slug: "fabriqueta", name: "Fabriqueta" });
+
+// --- Snapshot helpers ---
+
+const SNAPSHOT_DIR_NAME = "snapshots";
+
+function snapshotDir(slug: string) {
+  return resolve(projectsDirectory, slug, SNAPSHOT_DIR_NAME);
+}
+
+function snapshotId(input: { label?: string | null } = {}) {
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  const label = input.label ? `-${input.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}` : "";
+  return `${ts}${label}`;
+}
+
+export type SnapshotMetadata = {
+  id: string;
+  label: string | null;
+  createdAt: string;
+  dbSizeBytes: number;
+  docCount: number;
+  docSizeBytes: number;
+  tableRowCounts: {
+    epics: number;
+    tasks: number;
+    sprints: number;
+    documentation_nodes: number;
+    activity_log: number;
+  };
+};
+
+function readSnapshotMetadata(snapshotPath: string, id: string): SnapshotMetadata | null {
+  try {
+    const metaPath = resolve(snapshotPath, `${id}.metadata.json`);
+    if (!existsSync(metaPath)) return null;
+    return JSON.parse(readFileSync(metaPath, "utf-8")) as SnapshotMetadata;
+  } catch {
+    return null;
+  }
+}
+
+export function createSnapshot(projectSlug: string, input: { label?: string | null } = {}) {
+  return withProjectDb(projectSlug, (db) => {
+    const id = snapshotId(input);
+    const projectDbPath = projectPath(projectSlug);
+    const snapDir = snapshotDir(projectSlug);
+    mkdirSync(snapDir, { recursive: true });
+
+    const dbDest = resolve(snapDir, `${id}.sqlite`);
+    const docsDest = resolve(snapDir, `docs-${id}`);
+
+    // Copy DB
+    if (existsSync(projectDbPath)) {
+      writeFileSync(dbDest, readFileSync(projectDbPath));
+    }
+
+    // Export documentation
+    const docRows = db.query<DocumentationNodeRow, []>(`
+      SELECT id, parent_id AS parentId, name, kind, position, content, created_at AS createdAt, updated_at AS updatedAt
+      FROM documentation_nodes ORDER BY parent_id, position
+    `).all();
+    const docs = buildDocumentationTree(docRows);
+    mkdirSync(docsDest, { recursive: true });
+    for (const node of docs) {
+      exportNode(node, docsDest);
+    }
+
+    // Table row counts
+    const epicsCount = db.query<{ c: number }, []>(`SELECT COUNT(*) AS c FROM epics`).get()?.c ?? 0;
+    const tasksCount = db.query<{ c: number }, []>(`SELECT COUNT(*) AS c FROM tasks`).get()?.c ?? 0;
+    const sprintsCount = db.query<{ c: number }, []>(`SELECT COUNT(*) AS c FROM sprints`).get()?.c ?? 0;
+    const docsCount = db.query<{ c: number }, []>(`SELECT COUNT(*) AS c FROM documentation_nodes`).get()?.c ?? 0;
+    const activityCount = db.query<{ c: number }, []>(`SELECT COUNT(*) AS c FROM activity_log`).get()?.c ?? 0;
+
+    // Doc size
+    let docSizeBytes = 0;
+    function addDirSize(dir: string) {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = resolve(dir, entry.name);
+        if (entry.isDirectory()) addDirSize(full);
+        else docSizeBytes += statSync(full).size;
+      }
+    }
+    if (existsSync(docsDest)) addDirSize(docsDest);
+
+    const metadata: SnapshotMetadata = {
+      id,
+      label: input.label?.trim() || null,
+      createdAt: new Date().toISOString(),
+      dbSizeBytes: existsSync(dbDest) ? statSync(dbDest).size : 0,
+      docCount: docsCount,
+      docSizeBytes,
+      tableRowCounts: {
+        epics: epicsCount,
+        tasks: tasksCount,
+        sprints: sprintsCount,
+        documentation_nodes: docsCount,
+        activity_log: activityCount,
+      },
+    };
+
+    writeFileSync(resolve(snapDir, `${id}.metadata.json`), JSON.stringify(metadata, null, 2));
+
+    // Log activity
+    db.query(`
+      INSERT INTO activity_log (id, actor, action, entity_type, entity_id, details)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(crypto.randomUUID(), "system", "snapshot_create", "snapshot", id, JSON.stringify({ label: metadata.label }));
+
+    return metadata;
+  });
+}
+
+export function listSnapshots(projectSlug: string): SnapshotMetadata[] {
+  const snapDir = snapshotDir(projectSlug);
+  if (!existsSync(snapDir)) return [];
+
+  return readdirSync(snapDir)
+    .filter((f) => f.endsWith(".metadata.json"))
+    .map((f) => {
+      const id = f.replace(/\.metadata\.json$/, "");
+      return readSnapshotMetadata(snapDir, id);
+    })
+    .filter((m): m is SnapshotMetadata => m !== null)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function restoreSnapshot(projectSlug: string, snapshotId: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const snapDir = snapshotDir(projectSlug);
+    const dbFile = resolve(snapDir, `${snapshotId}.sqlite`);
+    const docsDir = resolve(snapDir, `docs-${snapshotId}`);
+    const metaFile = resolve(snapDir, `${snapshotId}.metadata.json`);
+
+    if (!existsSync(dbFile) || !existsSync(metaFile)) {
+      throw new Error("Snapshot not found");
+    }
+
+    const projectDbPath = projectPath(projectSlug);
+
+    // Replace DB atomically: write to temp, then rename
+    const tempDb = `${projectDbPath}.tmp`;
+    writeFileSync(tempDb, readFileSync(dbFile));
+    // Re-open with the restored DB to import docs
+    const restoredDb = new Database(tempDb);
+    initializeProjectSchema(restoredDb);
+
+    // Clear and re-import documentation
+    restoredDb.exec("DELETE FROM documentation_nodes");
+
+    if (existsSync(docsDir)) {
+      importDocsToDb(restoredDb, docsDir, null, "");
+    }
+
+    restoredDb.close();
+
+    // Atomic replace
+    writeFileSync(projectDbPath, readFileSync(tempDb));
+    try { Bun.file(tempDb).delete(); } catch {}
+
+    // Log activity (use a fresh handle to the now-restored DB)
+    withProjectDb(projectSlug, (logDb) => {
+      logDb.query(`
+        INSERT INTO activity_log (id, actor, action, entity_type, entity_id, details)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(crypto.randomUUID(), "system", "snapshot_restore", "snapshot", snapshotId, JSON.stringify({}));
+    });
+
+    return { ok: true };
+  });
+}
+
+export function deleteSnapshot(projectSlug: string, snapshotId: string) {
+  return withProjectDb(projectSlug, (db) => {
+    const snapDir = snapshotDir(projectSlug);
+    const dbFile = resolve(snapDir, `${snapshotId}.sqlite`);
+    const docsDir = resolve(snapDir, `docs-${snapshotId}`);
+    const metaFile = resolve(snapDir, `${snapshotId}.metadata.json`);
+
+    let deleted = false;
+    if (existsSync(dbFile)) { Bun.file(dbFile).delete(); deleted = true; }
+    if (existsSync(metaFile)) { Bun.file(metaFile).delete(); deleted = true; }
+    if (existsSync(docsDir)) {
+      // Recursively delete docs dir
+      function rmrf(dir: string) {
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          const full = resolve(dir, entry.name);
+          if (entry.isDirectory()) rmrf(full);
+          else Bun.file(full).delete();
+        }
+        Bun.file(dir).delete();
+      }
+      rmrf(docsDir);
+      deleted = true;
+    }
+
+    db.query(`
+      INSERT INTO activity_log (id, actor, action, entity_type, entity_id, details)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(crypto.randomUUID(), "system", "snapshot_delete", "snapshot", snapshotId, JSON.stringify({}));
+
+    return { ok: deleted };
+  });
+}
+
+function exportNode(node: DocumentationNode, basePath: string) {
+  const nodePath = resolve(basePath, node.name);
+  if (node.kind === "directory") {
+    mkdirSync(nodePath, { recursive: true });
+    for (const child of node.children) {
+      exportNode(child, nodePath);
+    }
+  } else {
+    writeFileSync(nodePath, node.content, "utf-8");
+  }
+}
+
+  function importDocsToDb(db: Database, dir: string, parentId: string | null, basePath: string) {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = resolve(dir, entry.name);
+      const name = entry.name;
+      const kind: DocumentationNodeKind = entry.isDirectory() ? "directory" : "page";
+      const content = kind === "page" ? readFileSync(full, "utf-8") : "";
+      const position = nextDocumentationPosition(db, parentId);
+      const id = crypto.randomUUID();
+
+      db.query(`INSERT INTO documentation_nodes (id, parent_id, name, kind, position, content) VALUES (?, ?, ?, ?, ?, ?)`)
+        .run(id, parentId, name, kind, position, content);
+
+      if (entry.isDirectory()) {
+        importDocsToDb(db, full, id, basePath);
+      }
+    }
+  }

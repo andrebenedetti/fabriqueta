@@ -1,0 +1,15 @@
+{
+  "id": "2026-04-28T19-11-05-603Z",
+  "label": null,
+  "createdAt": "2026-04-28T19:11:05.611Z",
+  "dbSizeBytes": 208896,
+  "docCount": 21,
+  "docSizeBytes": 37276,
+  "tableRowCounts": {
+    "epics": 8,
+    "tasks": 65,
+    "sprints": 10,
+    "documentation_nodes": 21,
+    "activity_log": 2
+  }
+}

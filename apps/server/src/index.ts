@@ -1,5 +1,6 @@
 import {
   addTaskToActiveSprint,
+  checkProjectHealth,
   claimTask,
   completeActiveSprint,
   createDocumentationNode,
@@ -9,9 +10,13 @@ import {
   deleteEpic,
   deleteDocumentationNode,
   deleteTask,
+  exportDocumentationToFilesystem,
+  findDocumentationNodeByPath,
   getActivityLog,
+  getCompactProjectSummary,
   getProjectBoard,
   getProjectDocumentation,
+  importDocumentationFromFilesystem,
   listProjects,
   logActivity,
   moveEpic,
@@ -20,12 +25,17 @@ import {
   removeTaskFromSprint,
   searchDocumentation,
   startSprint,
+  type DocumentationNode,
   type DocumentationNodeKind,
   type TaskStatus,
   updateDocumentationNode,
   updateEpic,
   updateSprintRetrospectiveNotes,
   updateTask,
+  createSnapshot,
+  listSnapshots,
+  restoreSnapshot,
+  deleteSnapshot,
 } from "./db";
 
 type Direction = "up" | "down";
@@ -427,6 +437,49 @@ export async function handleRequest(request: Request) {
       parts.length === 6
     ) {
       return json({ nodeId: deleteDocumentationNode(parts[2], parts[5]) });
+    }
+
+    if (
+      request.method === "GET" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "snapshots" &&
+      parts.length === 4
+    ) {
+      return json({ snapshots: listSnapshots(parts[2]) });
+    }
+
+    if (
+      request.method === "POST" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "snapshots" &&
+      parts.length === 4
+    ) {
+      const body = await parseBody<{ label?: unknown }>(request);
+      return json({ snapshot: createSnapshot(parts[2], { label: body.label ? String(body.label) : null }) }, 201);
+    }
+
+    if (
+      request.method === "POST" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "snapshots" &&
+      parts[5] === "restore" &&
+      parts.length === 6
+    ) {
+      restoreSnapshot(parts[2], parts[4]);
+      return json({ ok: true });
+    }
+
+    if (
+      request.method === "DELETE" &&
+      parts[0] === "api" &&
+      parts[1] === "projects" &&
+      parts[3] === "snapshots" &&
+      parts.length === 5
+    ) {
+      return json({ ok: deleteSnapshot(parts[2], parts[4]) });
     }
 
     return json({ error: "Not found" }, 404);

@@ -679,8 +679,131 @@ describe("MCP server", () => {
           `fabriqueta://projects/${createdProject.slug}/documentation`,
         );
       }
-    } finally {
-      await transport.close();
-    }
+     } finally {
+       await transport.close();
+     }
+   });
+ });
+
+describe("Snapshot operations", () => {
+  test("create, list, restore, and delete snapshot with 1:1 restore", async () => {
+    const projectResult = await apiRequest("POST", "/api/projects", { name: "Snapshot Test" });
+    expect(projectResult.response.status).toBe(201);
+    const project = projectResult.payload?.project as { slug: string };
+    const slug = project.slug;
+
+    // Create epic and task
+    const epicResult = await apiRequest("POST", `/api/projects/${slug}/epics`, { title: "Snap Epic" });
+    const epic = epicResult.payload?.epic as { id: string };
+    await apiRequest("POST", `/api/projects/${slug}/epics/${epic.id}/tasks`, { title: "Snap Task" });
+
+    // Create snapshot
+    const snapResult = await apiRequest("POST", `/api/projects/${slug}/snapshots`, { label: "before-test" });
+    expect(snapResult.response.status).toBe(201);
+    const snapshot = snapResult.payload?.snapshot as { id: string; label: string };
+    expect(snapshot.label).toBe("before-test");
+
+    // List snapshots
+    const listResult = await apiRequest("GET", `/api/projects/${slug}/snapshots`);
+    expect(listResult.response.status).toBe(200);
+    const snapshots = listResult.payload?.snapshots as Array<{ id: string; label: string }>;
+    expect(snapshots.length).toBe(1);
+    expect(snapshots[0]?.id).toBe(snapshot.id);
+
+    // Add more data after snapshot
+    await apiRequest("POST", `/api/projects/${slug}/epics`, { title: "After Snapshot Epic" });
+
+    // Restore snapshot
+    const restoreResult = await apiRequest("POST", `/api/projects/${slug}/snapshots/${snapshot.id}/restore`, {});
+    expect(restoreResult.response.status).toBe(200);
+
+    // Verify restore: only original epic should exist
+    const boardResult = await apiRequest("GET", `/api/projects/${slug}/board`);
+    const board = boardResult.payload as { epics: Array<{ title: string; tasks: Array<{ title: string; status: string }> }> };
+    expect(board.epics).toHaveLength(1);
+    expect(board.epics[0]?.title).toBe("Snap Epic");
+    expect(board.epics[0]?.tasks).toHaveLength(1);
+    expect(board.epics[0]?.tasks[0]).toMatchObject({ title: "Snap Task", status: "todo" });
+
+    // Delete snapshot
+    const deleteResult = await apiRequest("DELETE", `/api/projects/${slug}/snapshots/${snapshot.id}`);
+    expect(deleteResult.response.status).toBe(200);
+
+    const listAfterDelete = await apiRequest("GET", `/api/projects/${slug}/snapshots`);
+    const snapshotsAfterDelete = listAfterDelete.payload?.snapshots as Array<unknown>;
+    expect(snapshotsAfterDelete).toHaveLength(0);
+  });
+
+  test("snapshot includes documentation and restores it", async () => {
+    const projectResult = await apiRequest("POST", "/api/projects", { name: "Docs Snapshot" });
+    const slug = (projectResult.payload?.project as { slug: string }).slug;
+
+    // Create documentation
+    const dirResult = await apiRequest("POST", `/api/projects/${slug}/documentation/nodes`, {
+      kind: "directory",
+      name: "specs",
+    });
+    const dirId = (dirResult.payload?.node as { id: string }).id;
+    await apiRequest("POST", `/api/projects/${slug}/documentation/nodes`, {
+      kind: "page",
+      parentId: dirId,
+      name: "readme",
+      content: "# Readme\n\nOriginal content.",
+    });
+
+    // Verify doc exists
+    const docsBeforeSnap = await apiRequest("GET", `/api/projects/${slug}/documentation`);
+    const docsBefore = docsBeforeSnap.payload as { nodes: Array<{ name: string; children?: Array<{ name: string; content: string }> }> };
+    expect(docsBefore.nodes[0]?.name).toBe("specs");
+    expect(docsBefore.nodes[0]?.children?.[0]?.content).toBe("# Readme\n\nOriginal content.");
+
+    // Snapshot
+    const snapResult = await apiRequest("POST", `/api/projects/${slug}/snapshots`, { label: "with-docs" });
+    const snapshotId = (snapResult.payload?.snapshot as { id: string }).id;
+
+    // Modify doc
+    const docsResult = await apiRequest("GET", `/api/projects/${slug}/documentation`);
+    const docs = docsResult.payload as { nodes: Array<{ children?: Array<{ id: string }> }> };
+    const pageId = docs.nodes[0]?.children?.[0]?.id;
+    await apiRequest("PATCH", `/api/projects/${slug}/documentation/nodes/${pageId}`, {
+      content: "# Readme\n\nModified content.",
+    });
+
+    // Verify doc modified
+    const docsModified = await apiRequest("GET", `/api/projects/${slug}/documentation`);
+    const modified = docsModified.payload as { nodes: Array<{ children?: Array<{ content: string }> }> };
+    expect(modified.nodes[0]?.children?.[0]?.content).toBe("# Readme\n\nModified content.");
+
+    // Restore
+    const restoreResult = await apiRequest("POST", `/api/projects/${slug}/snapshots/${snapshotId}/restore`, {});
+    expect(restoreResult.response.status).toBe(200);
+
+    // Verify doc restored
+    const docsAfter = await apiRequest("GET", `/api/projects/${slug}/documentation`);
+    const docsAfterPayload = docsAfter.payload as {
+      nodes: Array<{ name: string; children?: Array<{ name: string; content: string }> }>;
+    };
+    console.log("Docs after restore:", JSON.stringify(docsAfterPayload.nodes, null, 2));
+    expect(docsAfterPayload.nodes[0]?.children?.[0]?.content).toBe("# Readme\n\nOriginal content.");
+  });
+
+  test("handles corrupted snapshot gracefully", async () => {
+    const projectResult = await apiRequest("POST", "/api/projects", { name: "Corrupt Test" });
+    const slug = (projectResult.payload?.project as { slug: string }).slug;
+
+    // Create a snapshot first
+    const snapResult = await apiRequest("POST", `/api/projects/${slug}/snapshots`, {});
+    const snapshotId = (snapResult.payload?.snapshot as { id: string }).id;
+
+    // Corrupt the snapshot file
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const snapshotDir = path.join(projectsDir, `${slug}/snapshots`);
+    const snapshotFile = path.join(snapshotDir, `${snapshotId}.sqlite`);
+    fs.writeFileSync(snapshotFile, "corrupted data");
+
+    // Restore should fail gracefully
+    const restoreResult = await apiRequest("POST", `/api/projects/${slug}/snapshots/${snapshotId}/restore`, {});
+    expect([400, 500]).toContain(restoreResult.response.status);
   });
 });
