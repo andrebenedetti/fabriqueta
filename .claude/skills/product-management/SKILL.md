@@ -1,3 +1,8 @@
+---
+name: product-management
+description: Use this skill when defining, refining, splitting, prioritizing, or validating product work.
+---
+
 # Product Management Skill
 
 Use this skill when defining, refining, splitting, prioritizing, or validating product work.

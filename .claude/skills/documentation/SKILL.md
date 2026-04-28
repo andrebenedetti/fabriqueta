@@ -1,3 +1,8 @@
+---
+name: documentation
+description: Use this skill when product behavior, technical behavior, APIs, workflows, decisions, or sprint outcomes change.
+---
+
 # Documentation Skill
 
 Use this skill when product behavior, technical behavior, APIs, workflows, decisions, or sprint outcomes change.

@@ -1,3 +1,8 @@
+---
+name: writing-good-epics
+description: Write epics in the following format. You can exclude some parts if they do not make sense for the particular epic.
+---
+
 ## Writing good epics
 
 Write epics in the following format.

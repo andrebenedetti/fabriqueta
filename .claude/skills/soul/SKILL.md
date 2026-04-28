@@ -1,3 +1,8 @@
+---
+name: soul
+description: Ensures all relevant roles (PM, Design, Engineering, QA, Docs) are pulled into tasks appropriately.
+---
+
 ## Mandatory Role Pull-In Rule
 
 Before planning or executing any task, inspect whether the task requires input from these roles:

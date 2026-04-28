@@ -1,3 +1,8 @@
+---
+name: retro-continuous-improvement
+description: Use this skill at the end of a sprint, major task, failed attempt, blocked workflow, or long autonomous run.
+---
+
 # Retro and Continuous Improvement Skill
 
 Use this skill at the end of a sprint, major task, failed attempt, blocked workflow, or long autonomous run.

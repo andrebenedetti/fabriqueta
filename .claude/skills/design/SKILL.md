@@ -1,3 +1,8 @@
+---
+name: design
+description: Use this skill when work affects user flows, screens, layout, navigation, forms, copy, onboarding, information architecture, or visual consistency.
+---
+
 # Product Design Skill
 
 Use this skill when work affects user flows, screens, layout, navigation, forms, copy, onboarding, information architecture, or visual consistency.

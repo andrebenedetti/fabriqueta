@@ -1,3 +1,8 @@
+---
+name: writing-good-tasks
+description: Write tasks in the following format. You can exclude some parts if they do not make sense for the particular task.
+---
+
 ## Writing good tasks
 
 Write tasks in the following format.

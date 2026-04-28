@@ -1,3 +1,8 @@
+---
+name: engineering
+description: Use this skill when implementing, reviewing, or planning technical work across backend and frontend.
+---
+
 # Engineering Skill
 
 Use this skill when implementing, reviewing, or planning technical work across backend and frontend.

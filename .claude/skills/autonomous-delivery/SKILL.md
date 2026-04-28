@@ -1,3 +1,8 @@
+---
+name: autonomous-delivery
+description: Use this skill whenever you are asked to deliver product work autonomously for multiple hours using the project management MCP server.
+---
+
 # Autonomous Delivery Skill
 
 Use this skill whenever you are asked to deliver product work autonomously for multiple hours using the project management MCP server.

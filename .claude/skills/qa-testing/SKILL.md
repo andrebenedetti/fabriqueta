@@ -1,3 +1,8 @@
+---
+name: qa-testing
+description: Use this skill when validating requirements, writing test plans, identifying edge cases, or creating automated testing tasks.
+---
+
 # QA and Automated Testing Skill
 
 Use this skill when validating requirements, writing test plans, identifying edge cases, or creating automated testing tasks.

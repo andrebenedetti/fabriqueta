@@ -1,3 +1,8 @@
+---
+name: scrum-master
+description: Use this skill when organizing, sequencing, tracking, or completing sprint work.
+---
+
 # Scrum Master Skill
 
 Use this skill when organizing, sequencing, tracking, or completing sprint work.
