@@ -43,12 +43,13 @@ function singleValue(value: string | string[]) {
   return Array.isArray(value) ? value[0] ?? "" : value;
 }
 
-function successResult<T extends Record<string, unknown> | undefined>(
-  summary: string,
-  structuredContent?: T,
-) {
+function successResult<T>(summary: string, structuredContent?: T) {
+  const text =
+    structuredContent !== undefined
+      ? `${summary}\n\n${jsonText(structuredContent)}`
+      : summary;
   return {
-    content: [{ type: "text" as const, text: summary }],
+    content: [{ type: "text" as const, text }],
     structuredContent,
   };
 }
@@ -429,7 +430,8 @@ server.registerTool(
   "list_projects",
   {
     title: "List projects",
-    description: "List all Fabriqueta projects available to the agent.",
+    description:
+      "List all Fabriqueta projects with slug, name, counts, and createdAt. Use each project's slug as projectSlug in other tools.",
     inputSchema: {},
   },
   async () => {
