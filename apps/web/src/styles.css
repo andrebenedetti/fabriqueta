@@ -1811,3 +1811,170 @@ kbd {
     grid-template-columns: 1fr;
   }
 }
+
+/* === 2026 UI Reinvention: Neo-Editorial Noir === */
+:root {
+  --bg: #0c0c10;
+  --bg-subtle: #15151c;
+  --surface: #191923;
+  --surface-muted: #232331;
+  --surface-strong: #101017;
+  --border: #353548;
+  --border-strong: #7f6bff;
+  --text: #f6f2ea;
+  --text-secondary: #c8c1b5;
+  --text-tertiary: #9a9388;
+  --brand: #ff6b3d;
+  --brand-hover: #ff855f;
+  --brand-soft: rgba(255, 107, 61, 0.2);
+  --info: #54e6ce;
+  --shadow-sm: 0 18px 40px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 42px 90px rgba(0, 0, 0, 0.6);
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+}
+
+body {
+  font-family: "IBM Plex Sans", "Gill Sans", "Trebuchet MS", sans-serif;
+  letter-spacing: 0.01em;
+  background:
+    radial-gradient(1200px 500px at -10% -20%, rgba(255, 107, 61, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 110% -20%, rgba(84, 230, 206, 0.16), transparent 58%),
+    repeating-linear-gradient(125deg, rgba(255, 255, 255, 0.015) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, #0a0a0e 0%, #141420 100%);
+}
+
+body::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  opacity: 0.15;
+  background-image: radial-gradient(circle at 1px 1px, #fff 1px, transparent 0);
+  background-size: 3px 3px;
+  mix-blend-mode: overlay;
+}
+
+.app-shell {
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.sidebar,
+.topbar,
+.panel-section,
+.board-column,
+.task-table,
+.documentation-tree,
+.documentation-editor,
+.task-detail-card,
+.history-card {
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar {
+  background: linear-gradient(180deg, rgba(25, 25, 35, 0.96), rgba(16, 16, 23, 0.98));
+  border-right: 2px solid var(--brand);
+}
+
+.brand-mark {
+  border-radius: 2px;
+  background: var(--brand);
+  color: #120b08;
+  font-family: "Rockwell", "Courier New", monospace;
+  font-size: 20px;
+}
+
+.brand-kicker,
+.sidebar-section-label,
+.section-kicker {
+  font-family: "Courier New", monospace;
+  letter-spacing: 0.22em;
+  color: var(--info);
+}
+
+h1, h2, h3, strong {
+  font-family: "Bodoni MT", "Didot", "Times New Roman", serif;
+  letter-spacing: 0.015em;
+}
+
+.sidebar-link,
+.button,
+.command-trigger,
+.topbar-search-button,
+.icon-button {
+  border-radius: 2px;
+  border-width: 1px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+}
+
+.sidebar-link.active {
+  background: linear-gradient(90deg, rgba(255, 107, 61, 0.18), rgba(255, 107, 61, 0.03));
+  border-left: 3px solid var(--brand);
+  transform: translateX(3px);
+}
+
+.workspace-main {
+  padding: 28px;
+}
+
+.panel-section {
+  background: linear-gradient(170deg, rgba(30, 30, 42, 0.96), rgba(20, 20, 30, 0.9));
+  position: relative;
+  overflow: hidden;
+}
+
+.panel-section::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 10%, rgba(255, 255, 255, 0.04) 45%, transparent 85%);
+  transform: translateX(-120%);
+  animation: sheen 7s linear infinite;
+}
+
+@keyframes sheen {
+  to { transform: translateX(120%); }
+}
+
+.metric-row,
+.list-row-button,
+.history-card,
+.task-table-row,
+.kanban-card {
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.status-pill {
+  border-radius: 2px;
+  border: 1px solid currentColor;
+  background: transparent;
+  font-family: "Courier New", monospace;
+  text-transform: uppercase;
+}
+
+.progress-bar {
+  border-radius: 999px;
+  background: #0d0d14;
+  border: 1px solid #38384a;
+}
+
+.progress-bar > div {
+  background: linear-gradient(90deg, var(--brand), #ffd166);
+  box-shadow: 0 0 18px rgba(255, 107, 61, 0.46);
+}
+
+.topbar {
+  background: rgba(10, 10, 16, 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #3b3b4e;
+}
+
+@media (max-width: 960px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .sidebar { position: relative; min-height: auto; }
+}
