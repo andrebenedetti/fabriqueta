@@ -1824,7 +1824,7 @@ kbd {
 
 .sidebar-link, .workspace-card, .panel-section, .summary-tile {
   position: relative;
-  overflow: clip;
+  overflow: visible;
 }
 
 .sidebar-link::after, .workspace-card::after, .panel-section::after {
@@ -1844,4 +1844,11 @@ kbd {
 @keyframes shell-enter {
   from { opacity: 0; transform: translateY(12px) scale(0.995); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.board-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 12px;
+  align-items: end;
 }

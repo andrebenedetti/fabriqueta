@@ -22,6 +22,8 @@ export function BoardView({ activeSprint, sprintTasks, onOpenTask, onTaskDrop }:
   ]);
   const [wipLimits, setWipLimits] = useState<Record<string, number>>({});
   const [showColumnConfig, setShowColumnConfig] = useState(false);
+  const [query, setQuery] = useState("");
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [editingColumnKey, setEditingColumnKey] = useState<string | null>(null);
   const [editingColumnName, setEditingColumnName] = useState("");
 
@@ -34,13 +36,22 @@ export function BoardView({ activeSprint, sprintTasks, onOpenTask, onTaskDrop }:
 
   const getTasksForColumn = useCallback(
     (columnKey: string) => {
-      if (columnKey === "todo") return sprintTasks.filter((t) => t.status === "todo");
-      if (columnKey === "done") return sprintTasks.filter((t) => t.status === "done");
-      if (columnKey === "in_review") return sprintTasks.filter((t) => t.status === "in_progress" && t.description?.includes("[review]"));
-      return sprintTasks.filter((t) => t.status === "in_progress" && !t.description?.includes("[review]"));
+      let tasks = sprintTasks;
+      if (query.trim()) {
+        const q = query.toLowerCase();
+        tasks = tasks.filter((t) => `${t.title} ${t.epicTitle} ${t.description}`.toLowerCase().includes(q));
+      }
+      if (assigneeFilter !== "all") {
+        tasks = tasks.filter((t) => (assigneeFilter === "unclaimed" ? !t.claimedBy : t.claimedBy === assigneeFilter));
+      }
+      if (columnKey === "todo") return tasks.filter((t) => t.status === "todo");
+      if (columnKey === "done") return tasks.filter((t) => t.status === "done");
+      if (columnKey === "in_review") return tasks.filter((t) => t.status === "in_progress" && t.description?.includes("[review]"));
+      return tasks.filter((t) => t.status === "in_progress" && !t.description?.includes("[review]"));
     },
-    [sprintTasks],
+    [assigneeFilter, query, sprintTasks],
   );
+  const assignees = Array.from(new Set(sprintTasks.map((t) => t.claimedBy).filter(Boolean))) as string[];
 
   function handleAddColumn() {
     const key = `col_${Date.now()}`;
@@ -87,6 +98,20 @@ export function BoardView({ activeSprint, sprintTasks, onOpenTask, onTaskDrop }:
             <button className="button button-secondary" onClick={() => setShowColumnConfig(!showColumnConfig)} type="button">
               Configure columns
             </button>
+          </div>
+          <div className="board-toolbar">
+            <label className="field grow-field">
+              <span>Find task</span>
+              <input onChange={(e) => setQuery(e.target.value)} placeholder="Search by title, epic, or description" value={query} />
+            </label>
+            <label className="field">
+              <span>Owner</span>
+              <select onChange={(e) => setAssigneeFilter(e.target.value)} value={assigneeFilter}>
+                <option value="all">All owners</option>
+                <option value="unclaimed">Unclaimed</option>
+                {assignees.map((name) => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </label>
           </div>
 
           {showColumnConfig ? (

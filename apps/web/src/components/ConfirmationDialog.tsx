@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 type ConfirmationDialogProps = {
   confirmLabel: string;
   isBusy: boolean;
@@ -15,9 +17,27 @@ export function ConfirmationDialog({
   onConfirm,
   title,
 }: ConfirmationDialogProps) {
+  useEffect(() => {
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") onCancel();
+    }
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [onCancel]);
+
   return (
-    <div aria-hidden={false} className="overlay-backdrop" role="presentation">
-      <section aria-modal="true" className="confirmation-modal" role="dialog">
+    <div
+      aria-hidden={false}
+      className="overlay-backdrop"
+      onClick={onCancel}
+      role="presentation"
+    >
+      <section
+        aria-modal="true"
+        className="confirmation-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+      >
         <div className="detail-section-heading">
           <h3>{title}</h3>
         </div>

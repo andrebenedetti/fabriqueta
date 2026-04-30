@@ -28,8 +28,6 @@ export function TaskDetailsDialog({
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [status, setStatus] = useState<TaskStatus>(task.status);
-  const [commentText, setCommentText] = useState("");
-  const [comments, setComments] = useState<Array<{ id: string; author: string; text: string; time: string }>>([]);
 
   useEffect(() => {
     setTitle(task.title);
@@ -57,18 +55,15 @@ export function TaskDetailsDialog({
     await onSaveTask(task.id, { title, description, status });
   }
 
-  function handleAddComment() {
-    if (!commentText.trim()) return;
-    setComments((prev) => [
-      ...prev,
-      { id: `c-${Date.now()}`, author: "session-agent", text: commentText.trim(), time: new Date().toISOString() },
-    ]);
-    setCommentText("");
-  }
-
   return (
-    <div aria-hidden={false} className="overlay-backdrop overlay-right" role="presentation">
-      <section aria-labelledby="task-drawer-title" aria-modal="true" className="task-drawer task-drawer-enhanced" role="dialog">
+    <div aria-hidden={false} className="overlay-backdrop overlay-right" onClick={onClose} role="presentation">
+      <section
+        aria-labelledby="task-drawer-title"
+        aria-modal="true"
+        className="task-drawer task-drawer-enhanced"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+      >
         <div className="drawer-header">
           <div>
             <p className="section-kicker">Task</p>
@@ -115,29 +110,7 @@ export function TaskDetailsDialog({
               <div className="detail-section-heading">
                 <h3>Comments</h3>
               </div>
-              <div className="comment-list">
-                {comments.map((c) => (
-                  <div className="comment-item" key={c.id}>
-                    <div className="comment-header">
-                      <strong>{c.author}</strong>
-                      <small>{formatShortDate(c.time)}</small>
-                    </div>
-                    <p>{c.text}</p>
-                  </div>
-                ))}
-                {comments.length === 0 ? (
-                  <p className="empty-inline-copy">No comments yet.</p>
-                ) : null}
-              </div>
-              <div className="inline-input-row comment-input">
-                <input
-                  onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddComment(); } }}
-                  placeholder="Add a comment..."
-                  value={commentText}
-                />
-                <button className="button button-primary" disabled={!commentText.trim()} onClick={handleAddComment} type="button">Send</button>
-              </div>
+              <p className="empty-inline-copy">Comments are managed in the activity stream integration.</p>
             </section>
 
             <section className="detail-section">

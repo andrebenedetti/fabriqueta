@@ -76,6 +76,13 @@ export function BacklogView({
     }
     return Array.from(groups.values());
   }, [filteredRecords]);
+  const insights = useMemo(() => {
+    const total = filteredRecords.length;
+    const todo = filteredRecords.filter((r) => r.task.status === "todo").length;
+    const inProgress = filteredRecords.filter((r) => r.task.status === "in_progress").length;
+    const done = filteredRecords.filter((r) => r.task.status === "done").length;
+    return { total, todo, inProgress, done };
+  }, [filteredRecords]);
 
   function toggleTask(taskId: string) {
     setSelectedTaskIds((prev) =>
@@ -147,6 +154,24 @@ export function BacklogView({
             <input checked={showCompleted} onChange={(e) => onShowCompletedChange(e.target.checked)} type="checkbox" />
             <span>Show completed</span>
           </label>
+        </div>
+        <div className="summary-strip compact">
+          <article className="summary-tile">
+            <span>Visible tasks</span>
+            <strong>{insights.total}</strong>
+          </article>
+          <article className="summary-tile">
+            <span>To do</span>
+            <strong>{insights.todo}</strong>
+          </article>
+          <article className="summary-tile">
+            <span>In progress</span>
+            <strong>{insights.inProgress}</strong>
+          </article>
+          <article className="summary-tile">
+            <span>Done</span>
+            <strong>{insights.done}</strong>
+          </article>
         </div>
 
         {selectedTaskIds.length ? (
