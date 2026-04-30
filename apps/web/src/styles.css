@@ -1,25 +1,23 @@
+@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;700&family=Fraunces:opsz,wght,SOFT@9..144,300..700,100&display=swap");
+
 :root {
-  color-scheme: light;
-  font-family:
-    Inter,
-    "Avenir Next",
-    "Segoe UI",
-    sans-serif;
+  color-scheme: dark;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
   line-height: 1.5;
   font-weight: 400;
-  --bg: #f6f7f9;
-  --bg-subtle: #eef2f6;
-  --surface: #ffffff;
-  --surface-muted: #f8fafc;
-  --surface-strong: #fcfcfd;
-  --border: #e4e7ec;
-  --border-strong: #d0d5dd;
-  --text: #111827;
-  --text-secondary: #475467;
-  --text-tertiary: #667085;
-  --brand: #2563eb;
-  --brand-hover: #1d4ed8;
-  --brand-soft: #dbeafe;
+  --bg: #0a0a0f;
+  --bg-subtle: #12121a;
+  --surface: #191923;
+  --surface-muted: #242432;
+  --surface-strong: #2a2a39;
+  --border: #3a3a4d;
+  --border-strong: #65658a;
+  --text: #f8f4e8;
+  --text-secondary: #cbc6b4;
+  --text-tertiary: #9e9988;
+  --brand: #ff5a36;
+  --brand-hover: #ff7a39;
+  --brand-soft: rgba(255, 90, 54, 0.28);
   --success: #15803d;
   --success-soft: #dcfce7;
   --warning: #d97706;
@@ -79,8 +77,11 @@ body {
   margin: 0;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.06), transparent 32%),
+    radial-gradient(circle at 15% 12%, rgba(255, 90, 54, 0.24), transparent 36%),
+    radial-gradient(circle at 84% 18%, rgba(76, 213, 255, 0.2), transparent 38%),
+    repeating-linear-gradient(125deg, rgba(248, 244, 232, 0.03) 0 2px, transparent 2px 16px),
     linear-gradient(180deg, var(--bg) 0%, var(--bg-subtle) 100%);
+  background-attachment: fixed;
 }
 
 button,
@@ -148,7 +149,7 @@ select:focus-visible {
   min-height: 100vh;
   padding: 20px 16px;
   border-right: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.76);
+  background: linear-gradient(180deg, rgba(18, 18, 26, 0.94), rgba(10, 10, 15, 0.92));
   backdrop-filter: blur(14px);
 }
 
@@ -196,7 +197,7 @@ select:focus-visible {
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: 12px;
+  border-radius: 4px;
   background: linear-gradient(135deg, var(--brand) 0%, var(--info) 100%);
   color: white;
   font-weight: 700;
@@ -206,6 +207,7 @@ select:focus-visible {
 .brand-kicker,
 .section-kicker,
 .sidebar-section-label {
+  font-family: "Fraunces", serif;
   margin: 0 0 4px;
   font-size: 12px;
   font-weight: 600;
@@ -225,7 +227,7 @@ select:focus-visible {
   justify-content: space-between;
   gap: 12px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 4px;
   background: var(--surface);
   color: var(--text-secondary);
   padding: 11px 12px;
@@ -309,7 +311,7 @@ kbd {
   justify-content: space-between;
   gap: 12px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
   padding: 10px 12px;
@@ -339,7 +341,7 @@ kbd {
 .sidebar-note {
   padding: 12px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   background: var(--surface-muted);
 }
 
@@ -369,6 +371,7 @@ kbd {
 }
 
 .topbar {
+  border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -376,11 +379,12 @@ kbd {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 16px;
   padding: 20px 24px 16px;
-  background: linear-gradient(180deg, rgba(246, 247, 249, 0.94), rgba(246, 247, 249, 0.75));
+  background: linear-gradient(180deg, rgba(18, 18, 26, 0.97), rgba(18, 18, 26, 0.76));
   backdrop-filter: blur(12px);
 }
 
 :root[data-theme="dark"] .topbar {
+  border-bottom: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(11, 18, 32, 0.94), rgba(11, 18, 32, 0.74));
 }
 
@@ -419,6 +423,7 @@ kbd {
 }
 
 .page-header h1 {
+  font-family: "Bebas Neue", "Impact", sans-serif;
   margin: 0;
   font-size: clamp(30px, 4vw, 40px);
   line-height: 1.05;
@@ -460,7 +465,7 @@ kbd {
 .button,
 .ghost-button {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 4px;
   padding: 10px 14px;
   background: var(--surface);
   color: var(--text);
@@ -510,7 +515,7 @@ kbd {
   width: 40px;
   height: 40px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 4px;
   background: var(--surface);
   color: var(--text-secondary);
   box-shadow: var(--shadow-xs);
@@ -563,7 +568,7 @@ kbd {
 .confirmation-modal,
 .task-drawer {
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.84);
+  background: linear-gradient(160deg, rgba(25, 25, 35, 0.98), rgba(36, 36, 50, 0.92));
   backdrop-filter: blur(10px);
   box-shadow: var(--shadow-sm);
 }
@@ -722,7 +727,7 @@ kbd {
   gap: 12px;
   padding: 12px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   background: var(--surface-muted);
 }
 
@@ -789,7 +794,7 @@ kbd {
   justify-content: space-between;
   gap: 16px;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 4px;
   background: var(--brand-soft);
 }
 
@@ -1042,7 +1047,7 @@ kbd {
   align-items: center;
   gap: 10px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
   padding: 10px 12px;
@@ -1073,7 +1078,7 @@ kbd {
   min-height: 420px;
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   background: var(--surface-muted);
   overflow-y: auto;
 }
@@ -1187,7 +1192,7 @@ kbd {
   justify-content: space-between;
   gap: 12px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 4px;
   background: transparent;
   color: var(--text);
   padding: 12px;
@@ -1277,7 +1282,7 @@ kbd {
   gap: 10px;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 4px;
   background: var(--surface-muted);
 }
 
@@ -1338,7 +1343,7 @@ kbd {
   z-index: 60;
   max-width: 360px;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: 4px;
   box-shadow: var(--shadow-lg);
 }
 
@@ -1360,7 +1365,7 @@ kbd {
 .inline-banner {
   padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   background: var(--surface);
 }
 
@@ -1810,4 +1815,33 @@ kbd {
   .task-detail-page {
     grid-template-columns: 1fr;
   }
+}
+
+
+.app-shell {
+  animation: shell-enter 760ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sidebar-link, .workspace-card, .panel-section, .summary-tile {
+  position: relative;
+  overflow: clip;
+}
+
+.sidebar-link::after, .workspace-card::after, .panel-section::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 0%, rgba(255, 90, 54, 0.08) 45%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 420ms ease;
+  pointer-events: none;
+}
+
+.sidebar-link:hover::after, .workspace-card:hover::after, .panel-section:hover::after {
+  transform: translateX(0%);
+}
+
+@keyframes shell-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.995); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
