@@ -1,6 +1,23 @@
 import { FormEvent, useEffect, useState } from "react";
 import type { Task, TaskStatus } from "../types";
 import { formatShortDate, taskStatusLabel } from "../utils";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "./ui/sheet";
+import { Textarea } from "./ui/textarea";
 
 type TaskDetailsDialogProps = {
   activeSprintId: string | null;
@@ -67,16 +84,16 @@ export function TaskDetailsDialog({
   }
 
   return (
-    <div aria-hidden={false} className="overlay-backdrop overlay-right" role="presentation">
-      <section aria-labelledby="task-drawer-title" aria-modal="true" className="task-drawer task-drawer-enhanced" role="dialog">
-        <div className="drawer-header">
+    <Sheet onOpenChange={(open) => { if (!open) onClose(); }} open>
+      <SheetContent className="task-drawer task-drawer-enhanced p-0" showCloseButton={false}>
+        <SheetHeader className="drawer-header">
           <div>
             <p className="section-kicker">Task</p>
-            <h2 id="task-drawer-title">{task.title}</h2>
-            <p className="section-subtitle">{epicTitle}</p>
+            <SheetTitle id="task-drawer-title">{task.title}</SheetTitle>
+            <SheetDescription className="section-subtitle">{epicTitle}</SheetDescription>
           </div>
-          <button className="ghost-button compact-button" onClick={onClose} type="button">Close</button>
-        </div>
+          <Button className="compact-button" onClick={onClose} type="button" variant="ghost">Close</Button>
+        </SheetHeader>
 
         <div className="drawer-layout">
           <form className="drawer-main" onSubmit={handleSubmit}>
@@ -88,12 +105,12 @@ export function TaskDetailsDialog({
 
               <label className="field">
                 <span>Title</span>
-                <input onChange={(e) => setTitle(e.target.value)} value={title} />
+                <Input onChange={(e) => setTitle(e.target.value)} value={title} />
               </label>
 
               <label className="field">
                 <span>Description</span>
-                <textarea
+                <Textarea
                   className="drawer-textarea"
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Describe the outcome, constraints, or implementation notes."
@@ -103,11 +120,16 @@ export function TaskDetailsDialog({
 
               <label className="field">
                 <span>Status</span>
-                <select onChange={(e) => setStatus(e.target.value as TaskStatus)} value={status}>
-                  <option value="todo">To do</option>
-                  <option value="in_progress">In progress</option>
-                  <option value="done">Done</option>
-                </select>
+                <Select onValueChange={(value) => setStatus(value as TaskStatus)} value={status}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todo">To do</SelectItem>
+                    <SelectItem value="in_progress">In progress</SelectItem>
+                    <SelectItem value="done">Done</SelectItem>
+                  </SelectContent>
+                </Select>
               </label>
             </section>
 
@@ -130,13 +152,13 @@ export function TaskDetailsDialog({
                 ) : null}
               </div>
               <div className="inline-input-row comment-input">
-                <input
+                <Input
                   onChange={(e) => setCommentText(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddComment(); } }}
                   placeholder="Add a comment..."
                   value={commentText}
                 />
-                <button className="button button-primary" disabled={!commentText.trim()} onClick={handleAddComment} type="button">Send</button>
+                <Button disabled={!commentText.trim()} onClick={handleAddComment} type="button">Send</Button>
               </div>
             </section>
 
@@ -158,8 +180,8 @@ export function TaskDetailsDialog({
                 <span>Task {task.position + 1} in {epicTitle}</span>
               </div>
               <div className="toolbar-actions">
-                <button className="button button-secondary" onClick={onClose} type="button">Cancel</button>
-                <button className="button button-primary" disabled={isMutating} type="submit">Save task</button>
+                <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
+                <Button disabled={isMutating} type="submit">Save task</Button>
               </div>
             </div>
           </form>
@@ -183,9 +205,9 @@ export function TaskDetailsDialog({
               <div className="detail-section-heading"><h3>Sprint</h3></div>
               {activeSprintId ? (
                 lifecycle.inActiveSprint ? (
-                  <button className="button button-secondary button-block" disabled={isMutating} onClick={() => void onRemoveTaskFromSprint(task.id)} type="button">Move to backlog</button>
+                  <Button className="button-block" disabled={isMutating} onClick={() => void onRemoveTaskFromSprint(task.id)} type="button" variant="secondary">Move to backlog</Button>
                 ) : (
-                  <button className="button button-secondary button-block" disabled={isMutating} onClick={() => void onAddTaskToSprint(task.id)} type="button">Add to sprint</button>
+                  <Button className="button-block" disabled={isMutating} onClick={() => void onAddTaskToSprint(task.id)} type="button" variant="secondary">Add to sprint</Button>
                 )
               ) : (
                 <p className="empty-inline-copy">Start a sprint to move this task onto the board.</p>
@@ -195,11 +217,11 @@ export function TaskDetailsDialog({
             <section className="detail-section detail-danger">
               <div className="detail-section-heading"><h3>Danger zone</h3></div>
               <p className="empty-inline-copy">Deleting this task removes it from the backlog and sprint workspace.</p>
-              <button className="button button-danger button-block" onClick={onDeleteTask} type="button">Delete task</button>
+              <Button className="button-block" onClick={onDeleteTask} type="button" variant="destructive">Delete task</Button>
             </section>
           </aside>
         </div>
-      </section>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }

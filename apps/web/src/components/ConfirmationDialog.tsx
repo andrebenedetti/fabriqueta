@@ -1,3 +1,13 @@
+import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+
 type ConfirmationDialogProps = {
   confirmLabel: string;
   isBusy: boolean;
@@ -16,21 +26,21 @@ export function ConfirmationDialog({
   title,
 }: ConfirmationDialogProps) {
   return (
-    <div aria-hidden={false} className="overlay-backdrop" role="presentation">
-      <section aria-modal="true" className="confirmation-modal" role="dialog">
-        <div className="detail-section-heading">
-          <h3>{title}</h3>
-        </div>
-        <p className="section-subtitle">{message}</p>
-        <div className="toolbar-actions">
-          <button className="button button-secondary" disabled={isBusy} onClick={onCancel} type="button">
+    <Dialog onOpenChange={(open) => { if (!open) onCancel(); }} open>
+      <DialogContent className="confirmation-modal" showCloseButton={false}>
+        <DialogHeader className="detail-section-heading">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="section-subtitle">{message}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="toolbar-actions">
+          <Button disabled={isBusy} onClick={onCancel} type="button" variant="secondary">
             Cancel
-          </button>
-          <button className="button button-danger" disabled={isBusy} onClick={() => void onConfirm()} type="button">
+          </Button>
+          <Button disabled={isBusy} onClick={() => void onConfirm()} type="button" variant="destructive">
             {confirmLabel}
-          </button>
-        </div>
-      </section>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,5 +1,15 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { Icon, type IconName } from "./icons";
+import { Button } from "./ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "./ui/command";
+import { Dialog, DialogContent } from "./ui/dialog";
 
 export type CommandAction = {
   id: string;
@@ -40,35 +50,36 @@ export function CommandPalette({ actions, isOpen, onClose }: CommandPaletteProps
   }
 
   return (
-    <div aria-hidden={false} className="overlay-backdrop" role="presentation">
-      <section aria-modal="true" className="command-palette" role="dialog">
-        <div className="command-palette-header">
-          <Icon name="search" />
-          <input
-            autoFocus
-            className="command-palette-input"
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Jump to a view, task, or action"
-            value={query}
-          />
-          <button className="ghost-button compact-button" onClick={onClose} type="button">
-            Esc
-          </button>
-        </div>
+    <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open={isOpen}>
+      <DialogContent className="command-palette overflow-hidden p-0" showCloseButton={false}>
+        <Command shouldFilter={false}>
+          <div className="command-palette-header">
+            <CommandInput
+              autoFocus
+              className="command-palette-input"
+              onValueChange={setQuery}
+              placeholder="Jump to a view, task, or action"
+              value={query}
+            />
+            <Button className="compact-button" onClick={onClose} type="button" variant="ghost">
+              Esc
+            </Button>
+          </div>
 
-        <div className="command-palette-results">
-          {filteredActions.length ? (
-            filteredActions.map((action) => (
-              <button
-                className="command-palette-item"
-                key={action.id}
-                onClick={() => {
-                  action.onSelect();
-                  onClose();
-                  setQuery("");
-                }}
-                type="button"
-              >
+          <CommandList className="command-palette-results">
+            {filteredActions.length ? (
+              <CommandGroup>
+                {filteredActions.map((action) => (
+                  <CommandItem
+                    className="command-palette-item"
+                    key={action.id}
+                    onSelect={() => {
+                      action.onSelect();
+                      onClose();
+                      setQuery("");
+                    }}
+                    value={action.id}
+                  >
                 <span className="command-palette-item-copy">
                   {action.icon ? <Icon name={action.icon} /> : <Icon name="spark" />}
                   <span>
@@ -76,17 +87,19 @@ export function CommandPalette({ actions, isOpen, onClose }: CommandPaletteProps
                     {action.hint ? <small>{action.hint}</small> : null}
                   </span>
                 </span>
-                <Icon name="chevron-right" />
-              </button>
-            ))
-          ) : (
-            <div className="empty-placeholder">
+                    <Icon name="chevron-right" />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : (
+              <CommandEmpty className="empty-placeholder">
               <h3>No matching actions</h3>
               <p>Try a task title, a page name, or an action like create, start sprint, or reports.</p>
-            </div>
-          )}
-        </div>
-      </section>
-    </div>
+              </CommandEmpty>
+            )}
+          </CommandList>
+        </Command>
+      </DialogContent>
+    </Dialog>
   );
 }

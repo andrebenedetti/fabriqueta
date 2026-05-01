@@ -1,5 +1,6 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { Icon, type IconName } from "./icons";
+import { Button } from "./ui/button";
 
 export type ShellNavItem = {
   id: string;
@@ -84,10 +85,10 @@ export function AppShell({
         </div>
 
         <div className="sidebar-command">
-          <button className="command-trigger" onClick={onCommandClick} type="button">
+          <Button className="command-trigger" onClick={onCommandClick} type="button" variant="secondary">
             <Icon name="search" />
             {!collapsed ? <><span>{commandLabel}</span><kbd>⌘K</kbd></> : null}
-          </button>
+          </Button>
         </div>
 
         <nav className="sidebar-nav" aria-label="Primary">
@@ -96,13 +97,14 @@ export function AppShell({
               {!collapsed ? <p className="sidebar-section-label">{section.label}</p> : null}
               <div className="sidebar-section-items">
                 {section.items.map((item) => (
-                  <button
+                  <Button
                     className={`sidebar-link${item.active ? " active" : ""}`}
                     data-nav-id={item.id}
                     disabled={item.disabled}
                     key={item.id}
                     onClick={item.onClick}
                     type="button"
+                    variant="ghost"
                   >
                     <span className="sidebar-link-copy">
                       <Icon name={item.icon} />
@@ -111,7 +113,7 @@ export function AppShell({
                     {!collapsed && item.badge !== null && item.badge !== undefined ? (
                       <span className="sidebar-badge">{item.badge}</span>
                     ) : null}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </section>
@@ -119,9 +121,9 @@ export function AppShell({
         </nav>
 
         <div className="sidebar-collapse-toggle">
-          <button className="icon-button" onClick={() => setCollapsed(!collapsed)} type="button">
+          <Button className="icon-button" onClick={() => setCollapsed(!collapsed)} size="icon" type="button" variant="ghost">
             <Icon name="chevron-right" />
-          </button>
+          </Button>
         </div>
 
         {!collapsed && sidebarMeta ? <div className="sidebar-meta">{sidebarMeta}</div> : null}
@@ -130,19 +132,19 @@ export function AppShell({
       <div className="workspace-shell">
         <header className="topbar">
           <div className="topbar-search">
-            <button className="topbar-search-button" onClick={onCommandClick} type="button">
+            <Button className="topbar-search-button" onClick={onCommandClick} type="button" variant="secondary">
               <Icon name="search" />
               <span>Search tasks, docs, projects, and actions</span>
-            </button>
+            </Button>
           </div>
 
           <div className="topbar-actions">
             {topbarMeta}
             {onQuickCreate ? (
-              <button className="button button-primary" onClick={onQuickCreate} type="button">
+              <Button onClick={onQuickCreate} type="button">
                 <Icon name="plus" />
                 <span>Create</span>
-              </button>
+              </Button>
             ) : null}
           </div>
         </header>

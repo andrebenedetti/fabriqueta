@@ -3,6 +3,8 @@ import type { Board, Sprint } from "../types";
 import type { TaskRecord } from "../utils";
 import { taskStatusLabel } from "../utils";
 import { EmptyState } from "../components/ui/EmptyState";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 type PlanningViewProps = {
   activeSprint: Sprint | null;
@@ -75,7 +77,7 @@ export function PlanningView({
                       </div>
                       <span className={`status-pill status-${record.task.status}`}>{taskStatusLabel(record.task.status)}</span>
                     </button>
-                    <button className="button button-secondary" onClick={() => void onRemoveTaskFromSprint(record.task.id)} type="button">Remove</button>
+                    <Button onClick={() => void onRemoveTaskFromSprint(record.task.id)} type="button" variant="secondary">Remove</Button>
                   </div>
                 ))
               ) : (
@@ -104,7 +106,7 @@ export function PlanningView({
                       </div>
                       <span className={`status-pill status-${record.task.status}`}>{taskStatusLabel(record.task.status)}</span>
                     </button>
-                    <button className="button button-primary" onClick={() => void onAddTaskToSprint(record.task.id)} type="button">Add</button>
+                    <Button onClick={() => void onAddTaskToSprint(record.task.id)} type="button">Add</Button>
                   </div>
                 ))
               ) : (
@@ -123,13 +125,13 @@ export function PlanningView({
           <form className="stack-form" onSubmit={onStartSprint}>
             <label className="field">
               <span>Sprint name</span>
-              <input onChange={(e) => onSprintNameChange(e.target.value)} placeholder="UI Redesign Sprint" value={sprintName} />
+              <Input onChange={(e) => onSprintNameChange(e.target.value)} placeholder="UI Redesign Sprint" value={sprintName} />
             </label>
             <label className="field">
               <span>Sprint capacity</span>
-              <input onChange={(e) => setSprintCapacity(Number(e.target.value) || 10)} placeholder="10" type="number" value={sprintCapacity} />
+              <Input onChange={(e) => setSprintCapacity(Number(e.target.value) || 10)} placeholder="10" type="number" value={sprintCapacity} />
             </label>
-            <button className="button button-primary" type="submit">Start sprint</button>
+            <Button type="submit">Start sprint</Button>
           </form>
         </section>
       )}
