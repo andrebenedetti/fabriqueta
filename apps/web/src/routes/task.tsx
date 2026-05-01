@@ -4,6 +4,16 @@ import { fetchBoard, updateTask, addTaskToSprint, removeTaskFromSprint, deleteTa
 import { AppShell, type ShellNavSection } from "../components/AppShell";
 import { Icon } from "../components/icons";
 import { ToastContainer } from "../components/ui/Toast";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Textarea } from "../components/ui/textarea";
 import { useStore } from "../store";
 import { taskStatusLabel, formatShortDate } from "../utils";
 import type { Task, TaskStatus } from "../types";
@@ -126,11 +136,11 @@ export function TaskDetailPage() {
             <section className="panel-section">
               <label className="field">
                 <span>Title</span>
-                <input onChange={(e) => setTitle(e.target.value)} value={title} />
+                <Input onChange={(e) => setTitle(e.target.value)} value={title} />
               </label>
               <label className="field">
                 <span>Description</span>
-                <textarea
+                <Textarea
                   className="drawer-textarea"
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Describe the outcome, constraints, or implementation notes."
@@ -140,17 +150,22 @@ export function TaskDetailPage() {
               </label>
               <label className="field">
                 <span>Status</span>
-                <select onChange={(e) => setStatus(e.target.value as TaskStatus)} value={status}>
-                  <option value="todo">To do</option>
-                  <option value="in_progress">In progress</option>
-                  <option value="done">Done</option>
-                </select>
+                <Select onValueChange={(value) => setStatus(value as TaskStatus)} value={status}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todo">To do</SelectItem>
+                    <SelectItem value="in_progress">In progress</SelectItem>
+                    <SelectItem value="done">Done</SelectItem>
+                  </SelectContent>
+                </Select>
               </label>
               <div className="toolbar-actions">
-                <button className="button button-secondary" onClick={() => window.history.back()} type="button">Back</button>
-                <button className="button button-primary" disabled={isSaving} onClick={handleSave} type="button">
+                <Button onClick={() => window.history.back()} type="button" variant="secondary">Back</Button>
+                <Button disabled={isSaving} onClick={handleSave} type="button">
                   {isSaving ? "Saving..." : "Save changes"}
-                </button>
+                </Button>
               </div>
             </section>
 
@@ -171,20 +186,19 @@ export function TaskDetailPage() {
                 {comments.length === 0 ? <p className="empty-inline-copy">No comments yet.</p> : null}
               </div>
               <div className="inline-input-row comment-input">
-                <input
+                <Input
                   onChange={(e) => setCommentText(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setComments((prev) => [...prev, { id: `c-${Date.now()}`, author: "session-agent", text: commentText.trim(), time: new Date().toISOString() }]); setCommentText(""); } }}
                   placeholder="Add a comment..."
                   value={commentText}
                 />
-                <button
-                  className="button button-primary"
+                <Button
                   disabled={!commentText.trim()}
                   onClick={() => { setComments((prev) => [...prev, { id: `c-${Date.now()}`, author: "session-agent", text: commentText.trim(), time: new Date().toISOString() }]); setCommentText(""); }}
                   type="button"
                 >
                   Send
-                </button>
+                </Button>
               </div>
             </section>
 
@@ -216,13 +230,13 @@ export function TaskDetailPage() {
               <div className="detail-section-heading"><h3>Sprint</h3></div>
               {activeSprintId ? (
                 task.sprintId === activeSprintId ? (
-                  <button className="button button-secondary button-block" onClick={() => { void removeTaskFromSprint(projectSlug, task.id).then(() => fetchBoard(projectSlug).then(setBoard)); }} type="button">
+                  <Button className="button-block" onClick={() => { void removeTaskFromSprint(projectSlug, task.id).then(() => fetchBoard(projectSlug).then(setBoard)); }} type="button" variant="secondary">
                     Move to backlog
-                  </button>
+                  </Button>
                 ) : (
-                  <button className="button button-primary button-block" onClick={() => { void addTaskToSprint(projectSlug, task.id).then(() => fetchBoard(projectSlug).then(setBoard)); }} type="button">
+                  <Button className="button-block" onClick={() => { void addTaskToSprint(projectSlug, task.id).then(() => fetchBoard(projectSlug).then(setBoard)); }} type="button">
                     Add to sprint
-                  </button>
+                  </Button>
                 )
               ) : (
                 <p className="empty-inline-copy">Start a sprint from the planning view.</p>
@@ -232,7 +246,7 @@ export function TaskDetailPage() {
             <section className="panel-section">
               <div className="detail-section-heading"><h3>Danger zone</h3></div>
               <p className="empty-inline-copy">Deleting this task removes it permanently.</p>
-              <button className="button button-danger button-block" onClick={handleDelete} type="button">Delete task</button>
+              <Button className="button-block" onClick={handleDelete} type="button" variant="destructive">Delete task</Button>
             </section>
           </aside>
         </div>

@@ -2,6 +2,7 @@ import type { Board, ActivityEntry } from "../types";
 import type { TaskRecord, BacklogSort, TaskStatus } from "../utils";
 import { taskStatusLabel, formatSprintDate } from "../utils";
 import { EmptyState } from "../components/ui/EmptyState";
+import { Button } from "../components/ui/button";
 
 type OverviewViewProps = {
   activityEntries: ActivityEntry[];
@@ -36,7 +37,7 @@ export function OverviewView({
             <h2>{board?.activeSprint?.name ?? "No active sprint"}</h2>
           </div>
           {!board?.activeSprint ? (
-            <button className="button button-primary" onClick={onOpenBacklog} type="button">Open backlog</button>
+            <Button onClick={onOpenBacklog} type="button">Open backlog</Button>
           ) : null}
         </div>
         <div className="metric-pairs">

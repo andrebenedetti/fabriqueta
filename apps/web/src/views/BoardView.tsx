@@ -4,6 +4,8 @@ import type { TaskStatus } from "../utils";
 import { taskStatusLabel } from "../utils";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBoundary } from "../components/ui/ErrorBoundary";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 type BoardViewProps = {
   activeSprint: Sprint | null;
@@ -70,7 +72,7 @@ export function BoardView({ activeSprint, sprintTasks, onOpenTask, onTaskDrop }:
       <EmptyState
         title="No active sprint"
         message="Start a sprint from the planning view to populate the execution board."
-        action={<button className="button button-primary" onClick={() => window.history.pushState({}, "", "?view=planning")} type="button">Go to planning</button>}
+        action={<Button onClick={() => window.history.pushState({}, "", "?view=planning")} type="button">Go to planning</Button>}
       />
     );
   }
@@ -84,9 +86,9 @@ export function BoardView({ activeSprint, sprintTasks, onOpenTask, onTaskDrop }:
               <p className="section-kicker">Sprint board</p>
               <h2>{activeSprint.name}</h2>
             </div>
-            <button className="button button-secondary" onClick={() => setShowColumnConfig(!showColumnConfig)} type="button">
+            <Button onClick={() => setShowColumnConfig(!showColumnConfig)} type="button" variant="secondary">
               Configure columns
-            </button>
+            </Button>
           </div>
 
           {showColumnConfig ? (
@@ -95,27 +97,27 @@ export function BoardView({ activeSprint, sprintTasks, onOpenTask, onTaskDrop }:
                 <div className="inline-input-row" key={col.key}>
                   {editingColumnKey === col.key ? (
                     <>
-                      <input
+                      <Input
                         autoFocus
                         onChange={(e) => setEditingColumnName(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") handleRenameColumn(col.key); }}
                         value={editingColumnName}
                       />
-                      <button className="button button-primary" onClick={() => handleRenameColumn(col.key)} type="button">Save</button>
-                      <button className="ghost-button" onClick={() => { setEditingColumnKey(null); setEditingColumnName(""); }} type="button">Cancel</button>
+                      <Button onClick={() => handleRenameColumn(col.key)} type="button">Save</Button>
+                      <Button onClick={() => { setEditingColumnKey(null); setEditingColumnName(""); }} type="button" variant="ghost">Cancel</Button>
                     </>
                   ) : (
                     <>
                       <span className="column-config-name">{col.title}</span>
-                      <button className="ghost-button" onClick={() => { setEditingColumnKey(col.key); setEditingColumnName(col.title); }} type="button">Rename</button>
+                      <Button onClick={() => { setEditingColumnKey(col.key); setEditingColumnName(col.title); }} type="button" variant="ghost">Rename</Button>
                       {columns.length > 2 ? (
-                        <button className="ghost-button danger-text" onClick={() => handleRemoveColumn(col.key)} type="button">Remove</button>
+                        <Button className="danger-text" onClick={() => handleRemoveColumn(col.key)} type="button" variant="ghost">Remove</Button>
                       ) : null}
                     </>
                   )}
                 </div>
               ))}
-              <button className="button button-secondary" onClick={handleAddColumn} type="button">+ Add column</button>
+              <Button onClick={handleAddColumn} type="button" variant="secondary">+ Add column</Button>
             </div>
           ) : null}
 

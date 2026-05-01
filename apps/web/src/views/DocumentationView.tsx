@@ -3,6 +3,9 @@ import type { Documentation, DocumentationNode } from "../types";
 import { Icon } from "../components/icons";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBoundary } from "../components/ui/ErrorBoundary";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
 
 type DocumentationViewProps = {
   documentation: Documentation | null;
@@ -79,7 +82,7 @@ export function DocumentationView({
             <h2>{activeDirectoryPath}</h2>
           </div>
           <div className="field">
-            <input
+            <Input
               onChange={(e) => setDocSearchQuery(e.target.value)}
               placeholder="Filter tree..."
               value={docSearchQuery}
@@ -94,12 +97,12 @@ export function DocumentationView({
           </div>
           <div className="stack-form">
             <form className="inline-input-row" onSubmit={onCreateDirectory}>
-              <input onChange={(e) => onDirectoryNameChange(e.target.value)} placeholder="New directory" value={directoryName} />
-              <button className="button button-secondary" type="submit">Add</button>
+              <Input onChange={(e) => onDirectoryNameChange(e.target.value)} placeholder="New directory" value={directoryName} />
+              <Button type="submit" variant="secondary">Add</Button>
             </form>
             <form className="inline-input-row" onSubmit={onCreatePage}>
-              <input onChange={(e) => onPageNameChange(e.target.value)} placeholder="New page" value={pageName} />
-              <button className="button button-primary" type="submit">Add</button>
+              <Input onChange={(e) => onPageNameChange(e.target.value)} placeholder="New page" value={pageName} />
+              <Button type="submit">Add</Button>
             </form>
           </div>
         </aside>
@@ -115,17 +118,17 @@ export function DocumentationView({
                 <div className="toolbar-actions">
                   {selectedPage ? (
                     <>
-                      <button className="button button-secondary" onClick={() => setPreviewMode(!previewMode)} type="button">
+                      <Button onClick={() => setPreviewMode(!previewMode)} type="button" variant="secondary">
                         {previewMode ? "Edit" : "Preview"}
-                      </button>
+                      </Button>
                     </>
                   ) : null}
-                  <button className="button button-danger" onClick={onDelete} type="button">Delete</button>
+                  <Button onClick={onDelete} type="button" variant="destructive">Delete</Button>
                 </div>
               </div>
               <label className="field">
                 <span>Name</span>
-                <input onChange={(e) => onSelectedNameChange(e.target.value)} value={selectedDocumentationName} />
+                <Input onChange={(e) => onSelectedNameChange(e.target.value)} value={selectedDocumentationName} />
               </label>
               {selectedPage ? (
                 previewMode ? (
@@ -136,7 +139,7 @@ export function DocumentationView({
                 ) : (
                   <label className="field">
                     <span>Content</span>
-                    <textarea
+                    <Textarea
                       className="doc-editor"
                       onChange={(e) => onSelectedContentChange(e.target.value)}
                       placeholder="# Product vision"
@@ -148,7 +151,7 @@ export function DocumentationView({
                 <EmptyState title="Directory selected" message="Create child pages from the left panel or rename this directory here." />
               )}
               <div className="toolbar-actions">
-                <button className="button button-primary" type="submit">Save</button>
+                <Button type="submit">Save</Button>
               </div>
             </form>
           ) : (

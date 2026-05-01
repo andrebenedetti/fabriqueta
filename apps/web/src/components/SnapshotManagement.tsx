@@ -1,6 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { useStore } from "../store";
 import { Icon } from "./icons";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/table";
 
 export function SnapshotManagement({ projectSlug }: { projectSlug: string }) {
   const snapshots = useStore((s) => s.snapshots);
@@ -112,7 +122,7 @@ export function SnapshotManagement({ projectSlug }: { projectSlug: string }) {
           >
             Label (optional)
           </label>
-          <input
+          <Input
             id="snapshot-label"
             type="text"
             value={label}
@@ -121,15 +131,14 @@ export function SnapshotManagement({ projectSlug }: { projectSlug: string }) {
             className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
-        <button
+        <Button
           type="button"
           disabled={isCreating}
           onClick={handleCreate}
-          className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
         >
           <Icon name="plus" className="h-4 w-4" />
           {isCreating ? "Creating..." : "Create Snapshot"}
-        </button>
+        </Button>
       </div>
 
       {/* Snapshot List */}
@@ -145,69 +154,71 @@ export function SnapshotManagement({ projectSlug }: { projectSlug: string }) {
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <Table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <TableHeader className="bg-gray-50 dark:bg-gray-900">
+              <TableRow>
+                <TableHead className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">
                   Label
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">
                   Created
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
                   DB Size
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
                   Docs
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
                   Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-200 dark:divide-gray-700">
               {snapshots.map((s) => (
-                <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                <TableRow key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <TableCell className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                     <div className="font-medium">{s.label ?? "(no label)"}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
                       {s.id}
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                     {formatDate(s.createdAt)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400">
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400">
                     {formatBytes(s.dbSizeBytes)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400">
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400">
                     {s.docCount} nodes ({formatBytes(s.docSizeBytes)})
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm">
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-right text-sm">
                     <div className="flex items-center justify-end gap-2">
-                      <button
+                      <Button
                         type="button"
                         disabled={restoringId === s.id}
                         onClick={() => handleRestore(s.id, s.label)}
-                        className="inline-flex items-center gap-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2.5 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                        size="sm"
+                        variant="secondary"
                       >
                         <Icon name="refresh" className="h-3.5 w-3.5" />
                         {restoringId === s.id ? "Restoring..." : "Restore"}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
                         onClick={() => handleDelete(s.id, s.label)}
-                        className="inline-flex items-center gap-1 rounded-md border border-red-300 dark:border-red-600 bg-white dark:bg-gray-800 px-2.5 py-1.5 text-xs font-semibold text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        size="sm"
+                        variant="destructive"
                       >
                         <Icon name="trash" className="h-3.5 w-3.5" />
                         Delete
-                      </button>
+                      </Button>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

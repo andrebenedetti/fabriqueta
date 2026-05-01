@@ -4,6 +4,15 @@ import type { TaskRecord, BacklogSort, TaskStatus } from "../utils";
 import { taskStatusLabel, sortBacklogTaskRows } from "../utils";
 import { Icon } from "../components/icons";
 import { EmptyState } from "../components/ui/EmptyState";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 
 type BacklogViewProps = {
   activeSprintId: string | null;
@@ -117,31 +126,41 @@ export function BacklogView({
             <p className="section-kicker">Backlog</p>
             <h2>Search, sort, and manage backlog tasks</h2>
           </div>
-          <button className="button button-secondary" onClick={onCreateEpic} type="button">Create epic</button>
+          <Button onClick={onCreateEpic} type="button" variant="secondary">Create epic</Button>
         </div>
 
         <div className="filter-grid">
           <label className="field grow-field">
             <span>Search</span>
-            <input onChange={(e) => onQueryChange(e.target.value)} placeholder="Search titles, descriptions, and epics" value={query} />
+            <Input onChange={(e) => onQueryChange(e.target.value)} placeholder="Search titles, descriptions, and epics" value={query} />
           </label>
           <label className="field">
             <span>Epic</span>
-            <select onChange={(e) => onEpicFilterChange(e.target.value)} value={epicFilter}>
-              <option value="all">All epics</option>
+            <Select onValueChange={onEpicFilterChange} value={epicFilter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All epics</SelectItem>
               {projectEpics.map((epic) => (
-                <option key={epic.id} value={epic.id}>{epic.title}</option>
+                  <SelectItem key={epic.id} value={epic.id}>{epic.title}</SelectItem>
               ))}
-            </select>
+              </SelectContent>
+            </Select>
           </label>
           <label className="field">
             <span>Order by</span>
-            <select onChange={(e) => onSortChange(e.target.value as BacklogSort)} value={sort}>
-              <option value="backlog">Backlog order</option>
-              <option value="title">Task name</option>
-              <option value="epic">Epic</option>
-              <option value="status">Status</option>
-            </select>
+            <Select onValueChange={(value) => onSortChange(value as BacklogSort)} value={sort}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="backlog">Backlog order</SelectItem>
+                <SelectItem value="title">Task name</SelectItem>
+                <SelectItem value="epic">Epic</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+              </SelectContent>
+            </Select>
           </label>
           <label className="checkbox-field">
             <input checked={showCompleted} onChange={(e) => onShowCompletedChange(e.target.checked)} type="checkbox" />
@@ -153,11 +172,11 @@ export function BacklogView({
           <div className="bulk-bar">
             <strong>{selectedTaskIds.length} selected</strong>
             <div className="toolbar-actions">
-              <button className="button button-secondary" onClick={() => void onBulkStatusChange("todo")} type="button">Mark to do</button>
-              <button className="button button-secondary" onClick={() => void onBulkStatusChange("in_progress")} type="button">Mark in progress</button>
-              <button className="button button-secondary" onClick={() => void onBulkStatusChange("done")} type="button">Mark done</button>
+              <Button onClick={() => void onBulkStatusChange("todo")} type="button" variant="secondary">Mark to do</Button>
+              <Button onClick={() => void onBulkStatusChange("in_progress")} type="button" variant="secondary">Mark in progress</Button>
+              <Button onClick={() => void onBulkStatusChange("done")} type="button" variant="secondary">Mark done</Button>
               {activeSprintId ? (
-                <button className="button button-primary" onClick={() => void onBulkAddToSprint()} type="button">Add to sprint</button>
+                <Button onClick={() => void onBulkAddToSprint()} type="button">Add to sprint</Button>
               ) : null}
             </div>
           </div>
@@ -202,13 +221,13 @@ export function BacklogView({
                         <div className="row-actions">
                           {activeSprintId ? (
                             record.task.sprintId === activeSprintId ? (
-                              <button className="ghost-button compact-button" onClick={() => void onRemoveTaskFromSprint(record.task.id)} type="button">Remove</button>
+                              <Button className="compact-button" onClick={() => void onRemoveTaskFromSprint(record.task.id)} type="button" variant="ghost">Remove</Button>
                             ) : (
-                              <button className="ghost-button compact-button" onClick={() => void onAddTaskToSprint(record.task.id)} type="button">Add</button>
+                              <Button className="compact-button" onClick={() => void onAddTaskToSprint(record.task.id)} type="button" variant="ghost">Add</Button>
                             )
                           ) : null}
-                          <button className="ghost-button compact-button" onClick={() => onOpenTask(record.task.id)} type="button">Open</button>
-                          <button className="ghost-button compact-button danger-text" onClick={() => onDeleteTask(record.task.id)} type="button">Delete</button>
+                          <Button className="compact-button" onClick={() => onOpenTask(record.task.id)} type="button" variant="ghost">Open</Button>
+                          <Button className="compact-button danger-text" onClick={() => onDeleteTask(record.task.id)} type="button" variant="ghost">Delete</Button>
                         </div>
                       </div>
                     ))}
@@ -216,18 +235,18 @@ export function BacklogView({
                   <div className="epic-quick-add">
                     {quickAddEpicId === group.epic.id ? (
                       <div className="inline-input-row">
-                        <input
+                        <Input
                           autoFocus
                           onChange={(e) => setQuickAddTitle(e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleQuickAdd(group.epic.id); } }}
                           placeholder="Task title"
                           value={quickAddTitle}
                         />
-                        <button className="button button-primary" disabled={isAddingTask || !quickAddTitle.trim()} onClick={() => void handleQuickAdd(group.epic.id)} type="button">Add</button>
-                        <button className="ghost-button" onClick={() => { setQuickAddEpicId(""); setQuickAddTitle(""); }} type="button">Cancel</button>
+                        <Button disabled={isAddingTask || !quickAddTitle.trim()} onClick={() => void handleQuickAdd(group.epic.id)} type="button">Add</Button>
+                        <Button onClick={() => { setQuickAddEpicId(""); setQuickAddTitle(""); }} type="button" variant="ghost">Cancel</Button>
                       </div>
                     ) : (
-                      <button className="ghost-button" onClick={() => setQuickAddEpicId(group.epic.id)} type="button">+ Add task</button>
+                      <Button onClick={() => setQuickAddEpicId(group.epic.id)} type="button" variant="ghost">+ Add task</Button>
                     )}
                   </div>
                 </>
@@ -238,7 +257,7 @@ export function BacklogView({
           <EmptyState
             title="No tasks match the current view"
             message="Widen the search, change the filters, or create work under an epic."
-            action={<button className="button button-primary" onClick={onCreateEpic} type="button">Create epic</button>}
+            action={<Button onClick={onCreateEpic} type="button">Create epic</Button>}
           />
         )}
       </section>

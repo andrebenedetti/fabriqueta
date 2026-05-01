@@ -1,5 +1,6 @@
 import { Icon } from "../icons";
 import { useStore } from "../../store";
+import { Button } from "./button";
 
 export function ToastContainer() {
   const toasts = useStore((s) => s.toasts);
@@ -12,9 +13,9 @@ export function ToastContainer() {
       {toasts.map((toast) => (
         <div key={toast.id} className={`toast toast-${toast.type}`}>
           <span>{toast.message}</span>
-          <button className="ghost-button compact-button" onClick={() => removeToast(toast.id)} type="button">
+          <Button className="compact-button" onClick={() => removeToast(toast.id)} type="button" variant="ghost">
             <Icon name="chevron-right" />
-          </button>
+          </Button>
         </div>
       ))}
     </div>

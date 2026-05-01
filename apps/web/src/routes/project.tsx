@@ -33,6 +33,24 @@ import { PlanningView } from "../views/PlanningView";
 import { BoardView } from "../views/BoardView";
 import { DocumentationView } from "../views/DocumentationView";
 import { SnapshotManagement } from "../components/SnapshotManagement";
+import { Button } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { Input } from "../components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Textarea } from "../components/ui/textarea";
 import { findDocumentationNode, findFirstPageNode, countDocumentationNodes, type BacklogSort, type TaskStatus } from "../utils";
 import type { Board, Documentation, Task } from "../types";
 import { Route as RootRoute } from "./__root";
@@ -415,11 +433,11 @@ export function ProjectPage() {
         </div>
         <div className="page-header-actions">
           {activeSprintId ? (
-            <button className="button button-secondary" disabled={isBusy} onClick={handleCompleteSprint} type="button">Complete sprint</button>
+            <Button disabled={isBusy} onClick={handleCompleteSprint} type="button" variant="secondary">Complete sprint</Button>
           ) : (
-            <button className="button button-secondary" onClick={() => changeView("planning")} type="button">Start sprint</button>
+            <Button onClick={() => changeView("planning")} type="button" variant="secondary">Start sprint</Button>
           )}
-          <button className="button button-primary" onClick={() => setIsQuickCreateOpen(true)} type="button">Create task</button>
+          <Button onClick={() => setIsQuickCreateOpen(true)} type="button">Create task</Button>
         </div>
       </div>
       <div className="view-tabs" role="tablist" aria-label="Project views">
@@ -562,54 +580,63 @@ export function ProjectPage() {
       <ToastContainer />
 
       {isQuickCreateOpen ? (
-        <div aria-hidden={false} className="overlay-backdrop" role="presentation">
-          <section aria-modal="true" className="confirmation-modal create-modal" role="dialog">
-            <div className="detail-section-heading"><h3>Create task</h3></div>
-            <p className="section-subtitle">Create a task directly inside an epic that already exists.</p>
+        <Dialog onOpenChange={setIsQuickCreateOpen} open={isQuickCreateOpen}>
+          <DialogContent className="confirmation-modal create-modal">
+            <DialogHeader className="detail-section-heading">
+              <DialogTitle>Create task</DialogTitle>
+              <DialogDescription className="section-subtitle">Create a task directly inside an epic that already exists.</DialogDescription>
+            </DialogHeader>
             <form className="stack-form" onSubmit={handleQuickCreateTask}>
               <label className="field">
                 <span>Title</span>
-                <input autoFocus onChange={(e) => setQuickTaskTitle(e.target.value)} placeholder="Task title" value={quickTaskTitle} />
+                <Input autoFocus onChange={(e) => setQuickTaskTitle(e.target.value)} placeholder="Task title" value={quickTaskTitle} />
               </label>
               <label className="field">
                 <span>Description</span>
-                <textarea onChange={(e) => setQuickTaskDescription(e.target.value)} placeholder="What should happen and why?" value={quickTaskDescription} />
+                <Textarea onChange={(e) => setQuickTaskDescription(e.target.value)} placeholder="What should happen and why?" value={quickTaskDescription} />
               </label>
               <label className="field">
                 <span>Epic</span>
-                <select onChange={(e) => setQuickTaskEpicId(e.target.value)} value={quickTaskEpicId}>
-                  {(board?.epics ?? []).map((epic) => (<option key={epic.id} value={epic.id}>{epic.title}</option>))}
-                </select>
+                <Select onValueChange={setQuickTaskEpicId} value={quickTaskEpicId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(board?.epics ?? []).map((epic) => (<SelectItem key={epic.id} value={epic.id}>{epic.title}</SelectItem>))}
+                  </SelectContent>
+                </Select>
               </label>
-              <div className="toolbar-actions">
-                <button className="button button-secondary" onClick={() => setIsQuickCreateOpen(false)} type="button">Cancel</button>
-                <button className="button button-primary" disabled={isBusy} type="submit">Create task</button>
-              </div>
+              <DialogFooter className="toolbar-actions">
+                <Button onClick={() => setIsQuickCreateOpen(false)} type="button" variant="secondary">Cancel</Button>
+                <Button disabled={isBusy} type="submit">Create task</Button>
+              </DialogFooter>
             </form>
-          </section>
-        </div>
+          </DialogContent>
+        </Dialog>
       ) : null}
 
       {isCreateEpicOpen ? (
-        <div aria-hidden={false} className="overlay-backdrop" role="presentation">
-          <section aria-modal="true" className="confirmation-modal create-modal" role="dialog">
-            <div className="detail-section-heading"><h3>Create epic</h3></div>
+        <Dialog onOpenChange={setIsCreateEpicOpen} open={isCreateEpicOpen}>
+          <DialogContent className="confirmation-modal create-modal">
+            <DialogHeader className="detail-section-heading">
+              <DialogTitle>Create epic</DialogTitle>
+            </DialogHeader>
             <form className="stack-form" onSubmit={handleCreateEpic}>
               <label className="field">
                 <span>Epic title</span>
-                <input autoFocus onChange={(e) => setEpicTitle(e.target.value)} value={epicTitle} />
+                <Input autoFocus onChange={(e) => setEpicTitle(e.target.value)} value={epicTitle} />
               </label>
               <label className="field">
                 <span>Description</span>
-                <textarea onChange={(e) => setEpicDescription(e.target.value)} placeholder="Describe the user outcome this epic supports." value={epicDescription} />
+                <Textarea onChange={(e) => setEpicDescription(e.target.value)} placeholder="Describe the user outcome this epic supports." value={epicDescription} />
               </label>
-              <div className="toolbar-actions">
-                <button className="button button-secondary" onClick={() => setIsCreateEpicOpen(false)} type="button">Cancel</button>
-                <button className="button button-primary" disabled={isBusy} type="submit">Create epic</button>
-              </div>
+              <DialogFooter className="toolbar-actions">
+                <Button onClick={() => setIsCreateEpicOpen(false)} type="button" variant="secondary">Cancel</Button>
+                <Button disabled={isBusy} type="submit">Create epic</Button>
+              </DialogFooter>
             </form>
-          </section>
-        </div>
+          </DialogContent>
+        </Dialog>
       ) : null}
 
       {selectedTaskRecord ? (

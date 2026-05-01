@@ -7,6 +7,16 @@ import {
   type CommandAction,
 } from "../components/CommandPalette";
 import { Icon } from "../components/icons";
+import { Button } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { Input } from "../components/ui/input";
 import type { Project } from "../types";
 import { Route as RootRoute } from "./__root";
 
@@ -145,13 +155,15 @@ function ProjectsHomePage() {
           </div>
         }
         topbarMeta={
-          <button
+          <Button
             className="icon-button"
             onClick={() => setIsCommandOpen(true)}
+            size="icon"
             type="button"
+            variant="ghost"
           >
             <Icon name="search" />
-          </button>
+          </Button>
         }
       >
         <section className="panel-section">
@@ -160,13 +172,12 @@ function ProjectsHomePage() {
               <p className="section-kicker">Workspaces</p>
               <h2>Open a project</h2>
             </div>
-            <button
-              className="button button-primary"
+            <Button
               onClick={() => setIsCreateOpen(true)}
               type="button"
             >
               Create project
-            </button>
+            </Button>
           </div>
 
           {isLoading ? (
@@ -214,13 +225,12 @@ function ProjectsHomePage() {
                 Create your first workspace to start managing epics, tasks,
                 sprints, and docs.
               </p>
-              <button
-                className="button button-primary"
+              <Button
                 onClick={() => setIsCreateOpen(true)}
                 type="button"
               >
                 Create project
-              </button>
+              </Button>
             </div>
           )}
 
@@ -235,51 +245,42 @@ function ProjectsHomePage() {
       />
 
       {isCreateOpen ? (
-        <div
-          aria-hidden={false}
-          className="overlay-backdrop"
-          role="presentation"
-        >
-          <section
-            aria-modal="true"
-            className="confirmation-modal create-modal"
-            role="dialog"
-          >
-            <div className="detail-section-heading">
-              <h3>Create project</h3>
-            </div>
-            <p className="section-subtitle">
-              Start a new workspace for product work and documentation.
-            </p>
+        <Dialog onOpenChange={setIsCreateOpen} open={isCreateOpen}>
+          <DialogContent className="confirmation-modal create-modal">
+            <DialogHeader className="detail-section-heading">
+              <DialogTitle>Create project</DialogTitle>
+              <DialogDescription className="section-subtitle">
+                Start a new workspace for product work and documentation.
+              </DialogDescription>
+            </DialogHeader>
             <form className="stack-form" onSubmit={handleCreateProject}>
               <label className="field">
                 <span>Project name</span>
-                <input
+                <Input
                   autoFocus
                   onChange={(event) => setProjectName(event.target.value)}
                   placeholder="Platform redesign"
                   value={projectName}
                 />
               </label>
-              <div className="toolbar-actions">
-                <button
-                  className="button button-secondary"
+              <DialogFooter className="toolbar-actions">
+                <Button
                   onClick={() => setIsCreateOpen(false)}
                   type="button"
+                  variant="secondary"
                 >
                   Cancel
-                </button>
-                <button
-                  className="button button-primary"
+                </Button>
+                <Button
                   disabled={isCreating}
                   type="submit"
                 >
                   {isCreating ? "Creating..." : "Create project"}
-                </button>
-              </div>
+                </Button>
+              </DialogFooter>
             </form>
-          </section>
-        </div>
+          </DialogContent>
+        </Dialog>
       ) : null}
     </>
   );
